@@ -8,33 +8,59 @@ interface ButtonProps {
 
 export function EditButton({ onClick }: ButtonProps) {
   return (
-    <button
-      onClick={onClick}
-      className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors"
-    >
-      <SquarePen size={16} />
-    </button>
+    <div className="relative group inline-block">
+  <button
+    onClick={onClick}
+    className="px-3 py-1 rounded hover:text-blue-500 transition-colors"
+  >
+    <SquarePen size={16} />
+  </button>
+
+  <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 
+                   whitespace-nowrap bg-black text-white text-xs 
+                   px-2 py-1 rounded opacity-0 group-hover:opacity-100 
+                   transition-opacity">
+    Edit Project
+  </span>
+</div>
   );
 }
 
 export function ReadButton({ onClick }: ButtonProps) {
   return (
-    <button
+    <div className="relative group inline-block">
+      <button
       onClick={onClick}
-      className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+      className="px-3 py-1  hover:text-blue-500 transition-colors"
     >
       <Eye size={16} />
     </button>
+    <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 
+                   whitespace-nowrap bg-black text-white text-xs 
+                   px-2 py-1 rounded opacity-0 group-hover:opacity-100 
+                   transition-opacity">
+      View Project
+  </span>
+    </div>
   );
 }
 
 export function Delbutton({ onClick }: ButtonProps) {
   return (
-    <button
-      onClick={onClick}
-      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-    >
-      <Trash size={16} />
-    </button>
+    <div className="relative group inline-block">
+      <button
+        onClick={onClick}
+        className="px-3 py-1 hover:text-red-600 transition-colors"
+      >
+        <Trash size={16} />
+      </button>
+
+      <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 
+                       whitespace-nowrap bg-black text-white text-xs 
+                       px-2 py-1 rounded opacity-0 
+                       group-hover:opacity-100 transition-opacity">
+        Delete
+      </span>
+    </div>
   );
 }

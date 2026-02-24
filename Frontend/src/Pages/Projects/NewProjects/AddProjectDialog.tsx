@@ -5,8 +5,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "../../Components/ui/Dialog";
-import { authFetch } from "../../lib/auth";
+} from "../../../Components/ui/Dialog";
+import { authFetch } from "../../../lib/auth";
 
 interface AddProjectDialogProps {
   open: boolean;

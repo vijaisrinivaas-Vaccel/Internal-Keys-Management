@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
+import RoleGuard from "../../Components/RoleGuard";
+import {permissions, type Role} from "../../lib/permissions";
 
 interface Module {
   _id: string;
@@ -7,7 +9,6 @@ interface Module {
 }
 
 export default function Sidebar() {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   const [modules, setModules] = useState<Module[]>([]);
 
@@ -66,37 +67,30 @@ export default function Sidebar() {
           ))}
 
           {/* ➕ Add Module (Superadmin only) */}
-          {user.role === "superadmin" && (
-            <NavLink
+          <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
+           <NavLink
               to="/add-module"
               className="block text-green-600 font-medium"
             >
               + Add Module
             </NavLink>
-          )}
+          </RoleGuard>
         </div>
 
         {/* BOTTOM SECTION (Admin Controls) */}
         <div className="border-t pt-4 space-y-3">
 
-          {user.role === "superadmin" && (
-            <NavLink
-              to="/admin-management"
-              className="block text-green-600"
-            >
+          <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
+            <NavLink to="/admin-management" className="block text-green-600">
               Admin Panel
             </NavLink>
-          )}
+          </RoleGuard>
 
-          {(user.role === "admin" ||
-            user.role === "superadmin") && (
-            <NavLink
-              to="/user-management"
-              className="block text-red-600"
-            >
+          <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
+            <NavLink to="/user-management" className="block text-red-600">
               User Management
             </NavLink>
-          )}
+          </RoleGuard>
 
           <NavLink to="/reports" className={linkClass}>
             Reports

@@ -6,7 +6,11 @@ import AuthPage from "./AuthPage/AuthPage";
 import DashboardLayout from "./Pages/Dashboard/DashboardLayout";
 import Dashboard from "./Pages/Dashboard/Dashboard";
 
-import ProjectPage from "./Pages/Projects/Project";
+import ProjectLayout from "./Pages/Projects/ProjectLayout";
+import NewProject from "./Pages/Projects/NewProjects/Project";
+import YourProjects from "./Pages/Projects/YourProject/YourProject";
+import ProjectAssigning from "./Pages/Projects/ProjectAssign/ProjectAssign";
+import ProjectLead from "./Pages/Projects/ProjectLead/ProjectLead";
 
 
 export default function App() {
@@ -54,7 +58,13 @@ export default function App() {
       {isAuthenticated && (
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Dashboard />} />
-          <Route path="projects" element={<ProjectPage />} /> 
+          <Route path="/projects" element={<ProjectLayout />}>
+            
+            <Route path="new-project" element={<NewProject />} />
+            <Route path="your-projects" element={<YourProjects />} />
+            <Route path="project-assigning" element={<ProjectAssigning />} />
+            <Route path="project-lead" element={<ProjectLead />} />
+          </Route> 
         </Route>
       )}
 

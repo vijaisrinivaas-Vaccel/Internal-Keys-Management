@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { authFetch } from "../../lib/auth";
-import { EditButton, Delbutton, ReadButton } from "../../Components/ui/Button";
+import { authFetch } from "../../../lib/auth";
+import { EditButton, Delbutton, ReadButton } from "../../../Components/ui/Button";
 import AddProjectDialog from "./AddProjectDialog";
+
+import RoleGuard from "../../../Components/RoleGuard";
+import { permissions, type Role } from "../../../lib/permissions";
+
 
 interface Project {
   _id: string;
@@ -71,7 +75,7 @@ export default function Projects() {
 
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Projects</h1>
+        <h1 className="text-3xl font-bold">+ New Project</h1>
 
         <div className="flex gap-3">
           {/* Search */}
@@ -158,17 +162,21 @@ export default function Projects() {
             </div>
 
             <div className="col-span-2 flex justify-center gap-3">
-              <EditButton onClick={() => handleEdit(project)}>
-                Edit
-              </EditButton>
+              <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
+                <EditButton onClick={() => handleEdit(project)}>
+                  Edit
+                </EditButton>
+              </RoleGuard>
 
               <ReadButton onClick={() => alert("Read " + project.title)}>
                 Read
               </ReadButton>
 
-              <Delbutton onClick={() => handleDelete(project._id)}>
-                Delete
-              </Delbutton>
+              <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
+                <Delbutton onClick={() => handleDelete(project._id)}>
+                  Delete
+                </Delbutton>
+              </RoleGuard>
             </div>
           </div>
         ))}

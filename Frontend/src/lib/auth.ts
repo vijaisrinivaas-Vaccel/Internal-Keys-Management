@@ -45,11 +45,11 @@ export const authFetch = async (
 
   if (response.status !== 401) return response;
 
-  const refreshedToken = await refreshAccessToken();
-  if (!refreshedToken) return response;
+  const toRefreshAccessToken = await refreshAccessToken();
+  if (!toRefreshAccessToken) return response;
 
   const retryHeaders = new Headers(init.headers || {});
-  retryHeaders.set("Authorization", `Bearer ${refreshedToken}`);
+  retryHeaders.set("Authorization", `Bearer ${toRefreshAccessToken}`);
 
   response = await fetch(url, {
     ...init,
