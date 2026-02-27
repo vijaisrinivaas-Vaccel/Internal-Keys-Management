@@ -11,6 +11,8 @@ import NewProject from "./Pages/Projects/NewProjects/Project";
 import YourProjects from "./Pages/Projects/YourProject/YourProject";
 import ProjectAssigning from "./Pages/Projects/ProjectAssign/ProjectAssign";
 import ProjectLead from "./Pages/Projects/ProjectLead/ProjectLead";
+import ModulePage from "./Pages/Module/ModulePage";
+import ConfigPage from "./Pages/Module/ConfigPage/ConfigPage";
 
 
 export default function App() {
@@ -65,6 +67,14 @@ export default function App() {
             <Route path="project-assigning" element={<ProjectAssigning />} />
             <Route path="project-lead" element={<ProjectLead />} />
           </Route> 
+          {/* MODULE ROUTE */}
+          <Route path="module/:moduleId" element={<ModulePage />} />
+
+          {/* CONFIG PAGE (Separate Page) */}
+          <Route
+            path="module/:moduleId/project/:projectId"
+            element={<ConfigPage />}
+          />
         </Route>
       )}
 

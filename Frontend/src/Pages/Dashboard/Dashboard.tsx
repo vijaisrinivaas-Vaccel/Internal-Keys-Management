@@ -14,7 +14,7 @@ export default function Dashboard() {
 
       {/* Common Section (Visible to all) */}
       <div className="mb-6 p-4 bg-white shadow rounded">
-        <p>Welcome to the Project Management System 🚀</p>
+        <p>Welcome to the Projects Keys Management System </p>
       </div>
 
       {/* Superadmin Only Section */}

@@ -4,7 +4,7 @@ import {
   createConfigEntry,
   getConfigEntries,
   updateConfigEntry,
-  deleteConfigEntry,
+  deleteConfigEntryItem,
 } from "../controllers/configEntry.controller";
 
 const router = Router();
@@ -12,6 +12,6 @@ const router = Router();
 router.get("/", authMiddleware, getConfigEntries);
 router.post("/", authMiddleware, createConfigEntry);
 router.put("/:id", authMiddleware, updateConfigEntry);
-router.delete("/:id", authMiddleware, deleteConfigEntry);
+router.delete("/:id", authMiddleware, deleteConfigEntryItem);
 
 export default router;

@@ -5,7 +5,7 @@ export interface UserDoc extends Document {
   firstname: string;
   lastname: string;
   username: string;
-  employeeId?: string;
+  employeeId?: number;
   email: string;
   password: string;
   role: "superadmin" | "admin" | "user";

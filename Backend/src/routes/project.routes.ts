@@ -2,7 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { 
-  createProject, getProjects, updateProject, deleteProject
+  createProject, getProjectsForModule, updateProject, deleteProject, getAllProjects
  } from "../controllers/project.controller";
 
 const storage = multer.diskStorage({
@@ -15,7 +15,8 @@ const upload = multer({ storage });
 
 const router = Router();
 
-router.get("/", authMiddleware, getProjects);
+router.get("/", authMiddleware, getAllProjects);
+router.get("/by-module", authMiddleware, getProjectsForModule);
 
 router.post(
   "/",

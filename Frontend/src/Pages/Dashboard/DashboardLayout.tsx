@@ -4,7 +4,7 @@ import Topbar from "../../Components/layout/Topbar";
 
 export default function DashboardLayout() {
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-blue-100">
       {/* Sidebar */}
       <Sidebar />
       
@@ -16,7 +16,7 @@ export default function DashboardLayout() {
         
         
         {/* Page Content */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-5 overflow-y-auto">
           <Outlet />
         </main>
       </div>

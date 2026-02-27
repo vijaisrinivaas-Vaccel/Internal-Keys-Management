@@ -94,7 +94,7 @@ export default function AddProjectDialog({
       >
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold">
-            Create New Project
+            {editData ? "Edit Project" : "Create New Project"}
           </DialogTitle>
         </DialogHeader>
 

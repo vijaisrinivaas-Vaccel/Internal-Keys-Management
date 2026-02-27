@@ -74,8 +74,8 @@ export default function Projects() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">+ New Project</h1>
+      <div className="flex justify-between items-center bg-white p-8 rounded-2xl">
+        <h1 className="text-3xl font-bold">+ Add New Project</h1>
 
         <div className="flex gap-3">
           {/* Search */}
@@ -104,10 +104,10 @@ export default function Projects() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow border overflow-hidden">
+      <div className="bg-white rounded-xl shadow overflow-hidden">
 
         {/* Table Header */}
-        <div className="grid grid-cols-7 gap-4 px-6 py-4 text-sm font-semibold text-gray-500 border-b">
+        <div className="grid grid-cols-7 gap-4 px-6 py-4 text-sm font-semibold text-gray-500 border-b border-slate-200">
           <div>S.No</div>
           <div>Title</div>
           <div>Created At</div>
@@ -134,7 +134,7 @@ export default function Projects() {
         {filteredProjects.map((project, index) => (
           <div
             key={project._id}
-            className="grid grid-cols-7 gap-4 px-6 py-4 border-b text-sm"
+            className="grid grid-cols-7 gap-4 px-6 py-4 border-b border-slate-200 text-sm"
           >
             <div>{index + 1}</div>
 

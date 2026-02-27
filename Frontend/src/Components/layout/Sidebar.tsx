@@ -2,6 +2,8 @@ import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import RoleGuard from "../../Components/RoleGuard";
 import {permissions, type Role} from "../../lib/permissions";
+import AddModuleDialog from "../../Pages/Module/AddModuleDialog";
+import { fetchModules } from "../../Service/module.service";
 
 interface Module {
   _id: string;
@@ -11,24 +13,10 @@ interface Module {
 export default function Sidebar() {
 
   const [modules, setModules] = useState<Module[]>([]);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const fetchModules = async () => {
-      const token = localStorage.getItem("token");
-
-      const res = await fetch("http://localhost:8000/api/modules", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setModules(data);
-      }
-    };
-
-    fetchModules();
+    fetchModules().then((modules) => setModules(modules));
   }, []);
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -37,11 +25,11 @@ export default function Sidebar() {
     }`;
 
   return (
-    <aside className="w-72 bg-white shadow h-screen flex flex-col">
+    <aside className="w-62 bg-white shadow h-screen flex flex-col">
       <div className="p-6 flex flex-col h-full">
 
-        <h1 className="text-xl font-bold mb-8">
-          Key Management System
+        <h1 className="text-xl font-mono font-bold mb-8">
+          KeyAccel
         </h1>
 
         {/* TOP SECTION */}
@@ -68,13 +56,18 @@ export default function Sidebar() {
 
           {/* ➕ Add Module (Superadmin only) */}
           <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
-           <NavLink
-              to="/add-module"
-              className="block text-green-600 font-medium"
+           <button
+              onClick={() => setOpen(true)}
+              className="text-green-600 font-medium mt-4"
             >
               + Add Module
-            </NavLink>
+            </button>
           </RoleGuard>
+          <AddModuleDialog
+            open={open}
+            onOpenChange={setOpen}
+            onSuccess={fetchModules}
+          />
         </div>
 
         {/* BOTTOM SECTION (Admin Controls) */}
