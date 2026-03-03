@@ -1,24 +1,9 @@
 import { NavLink } from "react-router-dom";
-import { useEffect, useState } from "react";
 import RoleGuard from "../../Components/RoleGuard";
 import {permissions, type Role} from "../../lib/permissions";
-import AddModuleDialog from "../../Pages/Module/AddModuleDialog";
-import { fetchModules } from "../../Service/module.service";
-
-interface Module {
-  _id: string;
-  moduleName: string;
-}
 
 export default function Sidebar() {
-
-  const [modules, setModules] = useState<Module[]>([]);
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    fetchModules().then((modules) => setModules(modules));
-  }, []);
-
+  
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `block px-2 py-1 rounded ${
       isActive ? "text-blue-600 font-semibold" : "text-gray-600"
@@ -43,31 +28,6 @@ export default function Sidebar() {
             Projects
           </NavLink>
 
-          {/* 🔥 Dynamic Modules */}
-          {modules.map((module) => (
-            <NavLink
-              key={module._id}
-              to={`/module/${module._id}`}
-              className={linkClass}
-            >
-              {module.moduleName}
-            </NavLink>
-          ))}
-
-          {/* ➕ Add Module (Superadmin only) */}
-          <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
-           <button
-              onClick={() => setOpen(true)}
-              className="text-green-600 font-medium mt-4"
-            >
-              + Add Module
-            </button>
-          </RoleGuard>
-          <AddModuleDialog
-            open={open}
-            onOpenChange={setOpen}
-            onSuccess={fetchModules}
-          />
         </div>
 
         {/* BOTTOM SECTION (Admin Controls) */}

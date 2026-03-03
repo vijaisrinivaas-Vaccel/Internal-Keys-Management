@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { authFetch } from "../../../lib/auth";
 import { EditButton, Delbutton, ReadButton } from "../../../Components/ui/Button";
 import AddProjectDialog from "./AddProjectDialog";
-
+import { useNavigate } from "react-router-dom";
 import RoleGuard from "../../../Components/RoleGuard";
 import { permissions, type Role } from "../../../lib/permissions";
 
@@ -17,6 +17,7 @@ interface Project {
 
 export default function Projects() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const navigate= useNavigate();
   
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -75,7 +76,7 @@ export default function Projects() {
 
       {/* Header */}
       <div className="flex justify-between items-center bg-white p-8 rounded-2xl">
-        <h1 className="text-3xl font-bold">+ Add New Project</h1>
+        <h1 className="text-2xl font-bold">Company Projects</h1>
 
         <div className="flex gap-3">
           {/* Search */}
@@ -168,7 +169,7 @@ export default function Projects() {
                 </EditButton>
               </RoleGuard>
 
-              <ReadButton onClick={() => alert("Read " + project.title)}>
+              <ReadButton onClick={() => navigate(`/project/${project._id}`)}>
                 Read
               </ReadButton>
 

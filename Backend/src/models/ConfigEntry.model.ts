@@ -33,6 +33,7 @@ interface Entry {
 interface ConfigEntryDoc extends mongoose.Document {
   projectId: mongoose.Types.ObjectId;
   moduleId: mongoose.Types.ObjectId;
+  environmentId: mongoose.Types.ObjectId; 
   entries: Entry[];
   createdBy: mongoose.Types.ObjectId;
   createdByName: string;
@@ -57,6 +58,7 @@ const configEntrySchema = new mongoose.Schema<ConfigEntryDoc>(
   {
     projectId: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true },
     moduleId: { type: mongoose.Schema.Types.ObjectId, ref: "Module", required: true },
+    environmentId: {type: mongoose.Schema.Types.ObjectId,ref: "Environment",required: true},
     entries: [entrySchema],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     createdByName: { type: String, required: true },

@@ -9,6 +9,7 @@ interface Props {
   onSuccess: () => void;
   moduleId: string;
   projectId: string;
+  environmentId:string;
   editEntry?: any; // if exists → edit mode
 }
 
@@ -18,6 +19,7 @@ export default function ConfigEntryDialog({
   onSuccess,
   moduleId,
   projectId,
+  environmentId,
   editEntry,
 }: Props) {
   const [key, setKey] = useState("");
@@ -25,20 +27,10 @@ export default function ConfigEntryDialog({
   const [expireAt, setExpireAt] = useState("");
   const isEdit = !!editEntry;
 
-  useEffect(() => {
-    if (editEntry) {
-      setKey(editEntry.key);
-      setValue(editEntry.value);
-      setExpireAt(editEntry.expireAt || "");
-    } else {
-      setKey("");
-      setValue("");
-      setExpireAt("");
-    }
-  }, [editEntry]);
+  
 
   const handleSubmit = async () => {
-    if (!key || !value) return;
+    if (!key || !value || !expireAt) return;
 
     if (isEdit) {
       await authFetch(
@@ -55,6 +47,7 @@ export default function ConfigEntryDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId,
+          environmentId,
           moduleId,
           entries: [{ key, value, expireAt }],
         }),
@@ -64,6 +57,18 @@ export default function ConfigEntryDialog({
     onSuccess();
     onOpenChange(false);
   };
+
+  useEffect(() => {
+    if (editEntry) {
+      setKey(editEntry.key);
+      setValue(editEntry.value);
+      setExpireAt(editEntry.expireAt || "");
+    } else {
+      setKey("");
+      setValue("");
+      setExpireAt("");
+    }
+  }, [editEntry,open]);
 
   return (
     <DialogRoot open={open} onOpenChange={onOpenChange}>

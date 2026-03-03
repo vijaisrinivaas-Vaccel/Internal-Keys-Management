@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 
 export const createConfigEntry = async (req: Request, res: Response) => {
   try {
-    const { projectId, moduleId, entries } = req.body;
+    const { projectId, moduleId, environmentId, entries } = req.body;
     const user = (req as any).user;
 
     const encryptedEntries = entries.map((e: any) => ({
@@ -16,7 +16,7 @@ export const createConfigEntry = async (req: Request, res: Response) => {
     }));
 
     const updated = await ConfigEntry.findOneAndUpdate(
-      { projectId, moduleId },
+      { projectId, moduleId, environmentId },
       {
         $push: { entries: { $each: encryptedEntries } },
         $set: { lastEditedByName: user.username },
@@ -35,7 +35,7 @@ export const createConfigEntry = async (req: Request, res: Response) => {
 
 export const getConfigEntries = async (req: Request, res: Response) => {
   try {
-    const { projectId, moduleId } = req.query;
+    const { projectId, moduleId, environmentId } = req.query;
 
     if (!projectId || !moduleId) {
       return res.status(400).json({
@@ -45,7 +45,8 @@ export const getConfigEntries = async (req: Request, res: Response) => {
 
     const config = await ConfigEntry.findOne({
       projectId,
-      moduleId,
+      moduleId, 
+      environmentId,
     }).lean(); // 🔥 lean makes it faster
 
     if (!config) return res.json([]);
@@ -144,12 +145,12 @@ export const updateConfigEntryItem = async (
 /* ================= DELETE CONFIG ENTRY ================= */
 export const deleteConfigEntryItem = async (req: Request, res: Response) => {
   try {
-    const { entryId } = req.params;
+    const { id } = req.params;
 
     const updated = await ConfigEntry.findOneAndUpdate(
-      { "entries._id": entryId },
+      { "entries._id": id },
       {
-        $pull: { entries: { _id: entryId } },
+        $pull: { entries: { _id: id } },
       },
       { new: true }
     );

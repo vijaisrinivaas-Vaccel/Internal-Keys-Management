@@ -12,6 +12,6 @@ const router = Router();
 router.get("/", authMiddleware, getConfigEntries);
 router.post("/", authMiddleware, createConfigEntry);
 router.put("/:id", authMiddleware, updateConfigEntry);
-router.delete("/:id", authMiddleware, deleteConfigEntryItem);
+router.delete("/delEntry/:id", authMiddleware, deleteConfigEntryItem);
 
 export default router;

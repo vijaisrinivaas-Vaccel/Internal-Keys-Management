@@ -5,8 +5,10 @@ import { connectDB } from "./config/db";
 import authRoutes from "./routes/auth.routes";
 
 import projectRoutes from "./routes/project.routes";
+import environmentRoutes from "./routes/environment.routes"
 import moduleRoutes from "./routes/module.routes";
 import configRoutes from "./routes/configEntry.routes";
+import userRoutes from "./routes/user.routes";
 
 dotenv.config();
 
@@ -42,6 +44,8 @@ connectDB();
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/environments", environmentRoutes);
 app.use("/api/modules", moduleRoutes);
 app.use("/api/config", configRoutes);
 

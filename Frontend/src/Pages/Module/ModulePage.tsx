@@ -1,132 +1,229 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { authFetch } from "../../lib/auth";
-import { Delbutton } from "../../Components/ui/Button";
-import { fetchModules } from "../../Service/module.service";
-import { ArrowLeft } from "lucide-react";
+import { MoreVertical, Plus } from "lucide-react";
+import AddModuleDialog from "./AddModuleDialog";
+import ConfirmationDialog from "../../Components/common/ConfirmationDialog";
 
 
-interface Project {
-  _id: string;
-  title: string;
-  totalKeys?: number;
+interface Props {
+  projectId: string;
+  environmentId: string;
+  onSelectModule: (id: string) => void;
 }
 
-export default function ModulePage() {
-  const { moduleId } = useParams<{ moduleId: string }>();
-  const navigate = useNavigate();
+interface Module {
+  _id: string;
+  moduleName: string;
+}
 
-  const [moduleName, setModuleName] = useState("");
-  const [projects, setProjects] = useState<Project[]>([]);
+export default function ModulePage({
+  projectId,
+  environmentId,
+  onSelectModule,
+}: Props) {
+  const [modules, setModules] = useState<Module[]>([]);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  /* ================= LOAD PROJECTS ================= */
-  const fetchProjects = async () => {
-    const res = await authFetch(`http://localhost:8000/api/projects/by-module?moduleId=${moduleId}`);
+  /* ================= FETCH MODULES ================= */
+  const fetchModules = async () => {
+    if (!projectId || !environmentId) return;
+
+    const res = await authFetch(
+      `http://localhost:8000/api/modules?projectId=${projectId}&environmentId=${environmentId}`
+    );
 
     if (res.ok) {
       const data = await res.json();
-      setProjects(data);
+      setModules(data);
     }
   };
 
-  /* ================= DELETE MODULE ================= */
+  /* ================= DELETE ================= */
   const handleDelete = async () => {
-    if (!moduleId) return;
+  if (!deleteId) return;
 
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this module?"
-    );
+  const res = await authFetch(
+    `http://localhost:8000/api/modules/${deleteId}`,
+    { method: "DELETE" }
+  );
 
-    if (!confirmDelete) return;
+  const data = await res.json();
+
+  if (res.ok) {
+    fetchModules();
+    setOpenMenu(null);
+  } else {
+    alert(data.message);
+  }
+
+  setConfirmOpen(false);
+  setDeleteId(null);
+};
+
+  /* ================= RENAME ================= */
+  const handleRename = async (id: string) => {
+    if (!renameValue.trim()) return;
 
     const res = await authFetch(
-      `http://localhost:8000/api/modules/${moduleId}`,
-      { method: "DELETE" }
+      `http://localhost:8000/api/modules/${id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moduleName: renameValue }),
+      }
     );
 
     if (res.ok) {
-      alert("Module deleted successfully!");
-      navigate("/projects");
-    } else {
-      alert("Failed to delete module.");
+      fetchModules();
+      setRenamingId(null);
+      setRenameValue("");
     }
   };
 
+  /* ================= OUTSIDE CLICK ================= */
   useEffect(() => {
-    fetchModules().then((modules) => {
-      const mod = modules.find((m: { _id: string | undefined; }) => m._id === moduleId);
-      if (mod) setModuleName(mod.moduleName);
-    });
-    fetchProjects();
-  }, [moduleId]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenu(null);
+      }
+    };
 
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    fetchModules();
+  }, [projectId, environmentId]);
 
   return (
-    <div >
-      
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
+    <div className="bg-white rounded-2xl shadow-lg w-full">
+
+      {/* Header */}
+      <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200">
+        <span className="font-semibold text-lg">Modules</span>
+
         <button
-          onClick={() => navigate(-1)}
-          className="p-2 rounded hover:bg-gray-100 transition"
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-2 text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition"
         >
-          <ArrowLeft size={18} />
+          <Plus size={16} />
+          Create
         </button>
-        
-        <h1 className="text-3xl font-bold">{moduleName} Module</h1>
       </div>
 
-        <Delbutton onClick={handleDelete}>
-          Delete Module
-        </Delbutton>
-      </div>
-
-      {/* PROJECT TABLE */}
-      <div className="bg-white rounded-xl shadow border overflow-hidden mb-6">
-
-        {/* Header */}
-        <div className="grid grid-cols-4 gap-4 px-6 py-4 text-sm font-semibold text-gray-500 border-b">
-          <div>S.No</div>
-          <div>Title</div>
-          <div>Total Keys</div>
-          <div className="text-center">Actions</div>
+      {/* Empty */}
+      {modules.length === 0 && (
+        <div className="px-6 py-8 text-center text-gray-500">
+          No modules found
         </div>
+      )}
 
-        {/* Empty State */}
-        {projects.length === 0 && (
-          <div className="px-6 py-10 text-center text-gray-500">
-            No projects found
-          </div>
-        )}
-
-        {/* Rows */}
-        {projects.map((project, index) => (
-          <div
-            key={project._id}
-            className="grid grid-cols-4 gap-4 px-6 py-4 border-b text-sm items-center"
-          >
-            <div>{index + 1}</div>
-        
-            <div className="font-medium">{project.title}</div>
-        
-            <div>
-              {project.totalKeys ?? 0}
-            </div>
-        
-            <div className="flex justify-center">
+      {/* List */}
+      {modules.map((module) => (
+        <div
+          key={module._id}
+          className="flex justify-between items-center px-6 py-4 border-t border-slate-200 hover:bg-gray-100 transition"
+        >
+          {/* Module Name / Rename */}
+          {renamingId === module._id ? (
+            <div className="flex gap-2 w-full">
+              <input
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                className="border px-2 py-1 rounded w-full text-sm"
+              />
               <button
-                onClick={() =>
-                  navigate(`/module/${moduleId}/project/${project._id}`)
-                }
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                onClick={() => handleRename(module._id)}
+                className="text-blue-600 text-sm"
               >
-                Go To Keys
+                Save
               </button>
             </div>
+          ) : (
+            <span
+              className="font-medium cursor-pointer text-gray-600 hover:text-blue-500"
+              onClick={() => onSelectModule(module._id)}
+            >
+              {module.moduleName}
+            </span>
+          )}
+
+          {/* 3 Dots */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() =>
+                setOpenMenu(openMenu === module._id ? null : module._id)
+              }
+              className={`p-2 rounded-lg transition 
+                ${openMenu === module._id 
+                  ? "bg-gray-200" 
+                  : "hover:bg-gray-100"}`}
+            >
+              <MoreVertical size={18} className="text-gray-600" />
+            </button>
+                
+            {openMenu === module._id && (
+              <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              
+                {/* Rename */}
+                <button
+                  onClick={() => {
+                    setRenamingId(module._id);
+                    setRenameValue(module.moduleName);
+                    setOpenMenu(null);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition"
+                >
+                  ✏️ Rename
+                </button>
+                
+                {/* Divider */}
+                <div className="border-t border-slate-200" />
+                
+                {/* Delete */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteId(module._id);
+                    setConfirmOpen(true);
+                    setOpenMenu(null);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+                >
+                  🗑 Delete
+                </button>
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
+
+      {/* Create Dialog */}
+      <AddModuleDialog
+        open={open}
+        onOpenChange={setOpen}
+        onSuccess={fetchModules}
+        projectId={projectId}
+        environmentId={environmentId}
+      />
+      <ConfirmationDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={handleDelete}
+        title="Delete Module"
+        message="Are you sure you want to delete this module? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

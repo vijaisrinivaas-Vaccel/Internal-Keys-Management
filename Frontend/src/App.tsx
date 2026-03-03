@@ -8,12 +8,10 @@ import Dashboard from "./Pages/Dashboard/Dashboard";
 
 import ProjectLayout from "./Pages/Projects/ProjectLayout";
 import NewProject from "./Pages/Projects/NewProjects/Project";
-import YourProjects from "./Pages/Projects/YourProject/YourProject";
-import ProjectAssigning from "./Pages/Projects/ProjectAssign/ProjectAssign";
-import ProjectLead from "./Pages/Projects/ProjectLead/ProjectLead";
-import ModulePage from "./Pages/Module/ModulePage";
-import ConfigPage from "./Pages/Module/ConfigPage/ConfigPage";
+import ProjectDetailPage from "./Pages/Projects/NewProjects/ProjectDetailPage";
 
+import AdminManagement from "./Pages/Admin/AdminMangement";
+import UserManagement from "./Pages/Admin/UserManagement";
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
@@ -63,20 +61,19 @@ export default function App() {
           <Route path="/projects" element={<ProjectLayout />}>
             
             <Route path="new-project" element={<NewProject />} />
-            <Route path="your-projects" element={<YourProjects />} />
-            <Route path="project-assigning" element={<ProjectAssigning />} />
-            <Route path="project-lead" element={<ProjectLead />} />
-          </Route> 
-          {/* MODULE ROUTE */}
-          <Route path="module/:moduleId" element={<ModulePage />} />
 
-          {/* CONFIG PAGE (Separate Page) */}
+            
+          </Route> 
           <Route
-            path="module/:moduleId/project/:projectId"
-            element={<ConfigPage />}
+            path="project/:projectId"
+            element={<ProjectDetailPage />}
           />
+          <Route path="/admin-management" element={<AdminManagement />} />
+          <Route path="/user-management" element={<UserManagement />} />
+          
         </Route>
       )}
+      
 
       <Route path="*" element={<Navigate to="/" replace />} />
       
