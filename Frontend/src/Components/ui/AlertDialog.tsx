@@ -3,7 +3,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
 import { cn } from "../../lib/utils"
 
-const AlertDialog = AlertDialogPrimitive.Root
+const AlertDialogRoot = AlertDialogPrimitive.Root
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger
 
@@ -122,8 +122,56 @@ const AlertDialogCancel = React.forwardRef<
 ))
 AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName
 
+/* ================= CUSTOM WRAPPER COMPONENT ================= */
+interface AlertDialogProps {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmText?: string;
+  cancelText?: string;
+}
+
+function AlertDialog({ 
+  title, 
+  message, 
+  onConfirm, 
+  onCancel,
+  confirmText = "Confirm",
+  cancelText = "Cancel"
+}: AlertDialogProps) {
+  return (
+    <AlertDialogRoot open={true} onOpenChange={(open) => !open && onCancel()}>
+      <AlertDialogContent className="bg-white rounded-lg shadow-lg">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-lg font-bold text-gray-900">
+            {title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-gray-600 mt-2">
+            {message}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="mt-6">
+          <AlertDialogCancel 
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
+          >
+            {cancelText}
+          </AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold"
+          >
+            {confirmText}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialogRoot>
+  );
+}
+
 export {
-  AlertDialog,
+  AlertDialogRoot,
   AlertDialogPortal,
   AlertDialogOverlay,
   AlertDialogTrigger,
@@ -134,4 +182,7 @@ export {
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel,
+  AlertDialog,
 }
+
+export default AlertDialog;

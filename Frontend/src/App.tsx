@@ -9,6 +9,9 @@ import Dashboard from "./Pages/Dashboard/Dashboard";
 import ProjectLayout from "./Pages/Projects/ProjectLayout";
 import NewProject from "./Pages/Projects/NewProjects/Project";
 import ProjectDetailPage from "./Pages/Projects/NewProjects/ProjectDetailPage";
+import AssignProject from "./Pages/Projects/AssignProject";
+import ManageAssignments from "./Pages/Projects/ManageAssignments";
+import MyAssignments from "./Pages/Projects/MyAssignments";
 
 import AdminManagement from "./Pages/Admin/AdminMangement";
 import UserManagement from "./Pages/Admin/UserManagement";
@@ -58,19 +61,15 @@ export default function App() {
       {isAuthenticated && (
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Dashboard />} />
-          <Route path="/projects" element={<ProjectLayout />}>
-            
+          <Route path="projects" element={<ProjectLayout />}>
             <Route path="new-project" element={<NewProject />} />
-
-            
-          </Route> 
-          <Route
-            path="project/:projectId"
-            element={<ProjectDetailPage />}
-          />
-          <Route path="/admin-management" element={<AdminManagement />} />
-          <Route path="/user-management" element={<UserManagement />} />
-          
+          </Route>
+          <Route path="projects/manage-assignments" element={<ManageAssignments />} />
+          <Route path="projects/assigned" element={<MyAssignments />} />
+          <Route path="project/:projectId" element={<ProjectDetailPage />} />
+          <Route path="project/:projectId/assign" element={<AssignProject />} />
+          <Route path="admin-management" element={<AdminManagement />} />
+          <Route path="user-management" element={<UserManagement />} />
         </Route>
       )}
       

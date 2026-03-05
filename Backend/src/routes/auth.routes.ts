@@ -5,6 +5,7 @@ import {
   refreshAccessToken,
   logout,
   getMe,
+  resetPassword,
 } from "../controllers/auth.controller";
 
 import {
@@ -20,6 +21,7 @@ router.post("/refresh", refreshAccessToken);
 router.post("/logout", logout);
 
 router.get("/me", authMiddleware, getMe);
+router.post("/reset-password", authMiddleware, resetPassword);
 
 router.get(
   "/dashboard",

@@ -1,12 +1,12 @@
 import { SquarePen, Eye, Trash } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ReactNode, ButtonHTMLAttributes } from "react";
 
-interface ButtonProps {
-  onClick?: () => void;
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
+  variant?: "primary" | "secondary" | "danger" | "ghost";
 }
 
-export function EditButton({ onClick }: ButtonProps) {
+export function EditButton({ onClick }: { onClick?: () => void }) {
   return (
     <div className="relative group inline-block">
   <button
@@ -26,7 +26,7 @@ export function EditButton({ onClick }: ButtonProps) {
   );
 }
 
-export function ReadButton({ onClick }: ButtonProps) {
+export function ReadButton({ onClick }: { onClick?: () => void }) {
   return (
     <div className="relative group inline-block">
       <button
@@ -45,7 +45,7 @@ export function ReadButton({ onClick }: ButtonProps) {
   );
 }
 
-export function Delbutton({ onClick }: ButtonProps) {
+export function Delbutton({ onClick }: { onClick?: () => void }) {
   return (
     <div className="relative group inline-block">
       <button
@@ -65,13 +65,31 @@ export function Delbutton({ onClick }: ButtonProps) {
   );
 }
 
-export function Button({ onClick, children }: ButtonProps) {
+export function Button({ 
+  onClick, 
+  children, 
+  className,
+  variant = "primary",
+  disabled = false,
+  ...props 
+}: ButtonProps) {
+  const variantClasses = {
+    primary: "bg-blue-600 hover:bg-blue-700 text-white",
+    secondary: "bg-gray-300 hover:bg-gray-400 text-gray-800",
+    danger: "bg-red-600 hover:bg-red-700 text-white",
+    ghost: "bg-transparent hover:bg-gray-100 text-gray-800",
+  };
+
   return (
     <button
       onClick={onClick}
-      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+      disabled={disabled}
+      className={className || `px-4 py-2 rounded-lg transition-colors font-semibold ${variantClasses[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      {...props}
     >
       {children}
     </button>
   );
 }
+
+export default Button;

@@ -72,7 +72,7 @@ export default function ConfigEntryDialog({
 
   return (
     <DialogRoot open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-6 rounded-xl">
+      <DialogContent className="max-w-md p-6 rounded-xl h-110">
         <h2 className="text-xl font-semibold mb-5">
           {isEdit ? "Edit Config Entry" : "Add Config Entry"}
         </h2>

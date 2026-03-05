@@ -12,6 +12,9 @@ export interface ProjectDoc extends Document {
   lastEditedBy?: mongoose.Types.ObjectId;
   lastEditedByName?: string;
 
+  assignedTo?: mongoose.Types.ObjectId[];
+  assignedToNames?: string[];
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +64,20 @@ const projectSchema = new Schema<ProjectDoc>(
       type: String,
       trim: true,
     },
+
+    assignedTo: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    assignedToNames: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
   },
   { timestamps: true,}
 );

@@ -1,18 +1,11 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { authFetch } from "../../../lib/auth";
-
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "../../../Components/ui/Select";
 
 import ModulePage from "../../Module/ModulePage";
 import ConfigPage from "../../Module/ConfigPage/ConfigPage";
-import EnvSelectDialog from "./EnvSelectDialog";
+import EnvironmentSelect from "./EnvironmentSelect";
+import RoleGuard from "../../../Components/RoleGuard";
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -22,7 +15,7 @@ export default function ProjectDetailPage() {
   const [environments, setEnvironments] = useState<any[]>([]);
   const [selectedEnvironment, setSelectedEnvironment] = useState("");
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
-  const [envDialogOpen, setEnvDialogOpen] = useState(false);
+  const [selectedModuleName, setSelectedModuleName] = useState<string>("");
 
   /* ================= FETCH PROJECT ================= */
   const fetchProject = async () => {
@@ -49,6 +42,11 @@ export default function ProjectDetailPage() {
     if (res.ok) {
       const data = await res.json();
       setEnvironments(data);
+
+      // Auto select first env if none selected
+      if (data.length > 0 && !selectedEnvironment) {
+        setSelectedEnvironment(data[0]._id);
+      }
     }
   };
 
@@ -59,93 +57,71 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-5">
-
       {/* ================= HEADER ================= */}
       <div className="bg-white p-8 rounded-2xl shadow flex items-center justify-between">
-        
         <button
           onClick={() => navigate(-1)}
           className="p-2 rounded-full hover:bg-gray-100 transition"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-gray-700"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
+          ←
         </button>
 
         <h1 className="text-2xl font-bold flex-1 text-center">
           {projectName}
         </h1>
 
+        <RoleGuard allowedRoles={["admin", "superadmin"]}>
+          <Link
+            to={`/project/${projectId}/assign`}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition inline-block"
+          >
+            Assign Project
+          </Link>
+        </RoleGuard>
       </div>
 
       {/* ================= MAIN LAYOUT ================= */}
       <div className="grid grid-cols-4 gap-6">
-
-        {/* LEFT SIDE — ENV + MODULES */}
+        {/* LEFT SIDE */}
         <div className="col-span-1 space-y-6">
-
-          {/* ENVIRONMENT SELECT */}
-          <div className="border-amber-50 mt-5">
-            <Select
-              value={selectedEnvironment}
-              onValueChange={(value) => {
-                if (value === "create_new") {
-                  setEnvDialogOpen(true);
-                  return;
-                }
-                setSelectedEnvironment(value);
-                setSelectedModule(null); // reset module
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Environment" />
-              </SelectTrigger>
-            
-              <SelectContent>
-                {environments.map((env) => (
-                  <SelectItem key={env._id} value={env._id}>
-                    {env.name}
-                  </SelectItem>
-                ))}
-
-                <SelectItem value="create_new">
-                  + Create New
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* 🔥 NEW ENVIRONMENT SELECT (REPLACED OLD SELECT) */}
+          <EnvironmentSelect
+            environments={environments}
+            selectedEnvironment={selectedEnvironment}
+            setSelectedEnvironment={(id) => {
+              setSelectedEnvironment(id);
               
+            }}
+            refresh={fetchEnvironments}
+            projectId={projectId!}
+            
+          />
+
           {/* MODULE LIST */}
           {selectedEnvironment ? (
             <ModulePage
               projectId={projectId!}
               environmentId={selectedEnvironment}
-              onSelectModule={(moduleId: string) =>
-                setSelectedModule(moduleId)
-              }
+              onSelectModule={(moduleId: string, moduleName: string) => {
+                setSelectedModule(moduleId);
+                setSelectedModuleName(moduleName);
+              }}
             />
           ) : (
             <div className="bg-white rounded-xl shadow border p-6 text-center text-gray-500 text-sm">
               Select an environment first
             </div>
           )}
-
         </div>
-        
-        {/* RIGHT SIDE — CONFIG */}
+
+        {/* RIGHT SIDE */}
         <div className="col-span-3">
           {selectedModule ? (
             <ConfigPage
               projectId={projectId!}
               environmentId={selectedEnvironment}
               moduleId={selectedModule}
+              moduleName={selectedModuleName}
             />
           ) : (
             <div className="bg-white rounded-xl shadow border p-10 text-center text-gray-500">
@@ -153,19 +129,7 @@ export default function ProjectDetailPage() {
             </div>
           )}
         </div>
-        
       </div>
-
-      {/* ================= ENV DIALOG ================= */}
-      <EnvSelectDialog
-        open={envDialogOpen}
-        onOpenChange={setEnvDialogOpen}
-        projectId={projectId!}
-        onSuccess={(newEnv) => {
-          setEnvironments((prev) => [...prev, newEnv]);
-          setSelectedEnvironment(newEnv._id);
-        }}
-      />
     </div>
   );
 }

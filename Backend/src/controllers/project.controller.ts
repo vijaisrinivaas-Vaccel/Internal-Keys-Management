@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import { Project } from "../models/Project.model";
 import { ConfigEntry } from "../models/ConfigEntry.model";
+import { Environment } from "../models/Environment.model";
+import { Module } from "../models/Module.model";
+import User from "../models/User.model";
 import mongoose from "mongoose";
 
 /* ================= CREATE PROJECT ================= */
@@ -21,7 +24,46 @@ export const createProject = async (req: Request, res: Response) => {
       createdByName: user.username || "Unknown",
     });
 
+    /* ================= DEFAULT ENVIRONMENTS ================= */
+
+    const defaultEnvironments = [
+      "Development",
+      "Staging",
+      "UAT",
+      "Production",
+    ];
+
+    const defaultModules = [
+      "Database",
+      "Auth Service",
+      "S3 Storage",
+      "Payment Gateway",
+      "Email Service",
+    ];
+
+    for (const envName of defaultEnvironments) {
+      const env = await Environment.create({
+        name: envName,
+        projectId: project._id,
+        createdBy: user.id,
+        createdByName: user.username,
+      });
+
+      /* ================= CREATE MODULES ================= */
+
+      const modules = defaultModules.map((moduleName) => ({
+        moduleName,
+        projectId: project._id,
+        environmentId: env._id,
+        createdBy: user.id,
+        createdByName: user.username,
+      }));
+
+      await Module.insertMany(modules);
+    }
+
     return res.status(201).json(project);
+
   } catch (err) {
     console.error("CREATE PROJECT ERROR:", err);
     return res.status(500).json({ message: "Server error" });
@@ -147,5 +189,47 @@ export const deleteProject = async (req: Request, res: Response) => {
     res.json({ message: "Deleted successfully" });
   } catch {
     res.status(500).json({ message: "Delete failed" });
+  }
+};
+
+/* ================= ASSIGN PROJECT ================= */
+export const assignProject = async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const { userIds } = req.body;
+
+    if (!Array.isArray(userIds)) {
+      return res.status(400).json({ message: "userIds must be an array" });
+    }
+
+    const validUserIds = userIds.filter((id: string) =>
+      mongoose.Types.ObjectId.isValid(id)
+    );
+
+    const users = await User.find(
+      { _id: { $in: validUserIds } },
+      { username: 1 }
+    ).lean();
+
+    const assignedTo = users.map((u) => u._id);
+    const assignedToNames = users.map((u) => u.username);
+
+    const updated = await Project.findByIdAndUpdate(
+      projectId,
+      {
+        assignedTo,
+        assignedToNames,
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    return res.json(updated);
+  } catch (err) {
+    console.error("ASSIGN PROJECT ERROR:", err);
+    return res.status(500).json({ message: "Assign failed" });
   }
 };

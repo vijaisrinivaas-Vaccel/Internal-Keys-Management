@@ -22,9 +22,10 @@ interface Props {
   projectId: string;
   environmentId: string;
   moduleId: string;
+  moduleName?: string;
 }
 
-export default function ConfigPage({ projectId, environmentId, moduleId, }: Props) {
+export default function ConfigPage({ projectId, environmentId, moduleId,moduleName, }: Props) {
   const [configs, setConfigs] = useState<ConfigResponse[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
@@ -114,18 +115,26 @@ export default function ConfigPage({ projectId, environmentId, moduleId, }: Prop
 
       {/* HEADER */}
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl">
-        <h2 className="text-lg font-semibold">Configurations</h2>
+        <div>
+          <h2 className="text-lg font-semibold">Configurations</h2>
 
+          {moduleName && (
+            <p className="text-sm text-gray-500 mt-1">
+              Module: <span className="font-medium text-gray-700">{moduleName}</span>
+            </p>
+          )}
+        </div>
+        
         <button
           onClick={() => {
             setSelectedEntry(null);
             setDialogOpen(true);
-            
           }}
           className="bg-blue-600 text-white px-4 py-2 rounded"
         >
           + Add Config
         </button>
+        
       </div>
 
         {/* TABLE CONTAINER */}

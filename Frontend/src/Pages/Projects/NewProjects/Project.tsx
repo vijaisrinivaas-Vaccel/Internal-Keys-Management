@@ -164,19 +164,13 @@ export default function Projects() {
 
             <div className="col-span-2 flex justify-center gap-3">
               <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
-                <EditButton onClick={() => handleEdit(project)}>
-                  Edit
-                </EditButton>
+                <EditButton onClick={() => handleEdit(project)}/>
               </RoleGuard>
 
-              <ReadButton onClick={() => navigate(`/project/${project._id}`)}>
-                Read
-              </ReadButton>
-
+              <ReadButton onClick={() => navigate(`/project/${project._id}`)}/>
+               
               <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
-                <Delbutton onClick={() => handleDelete(project._id)}>
-                  Delete
-                </Delbutton>
+                <Delbutton onClick={() => handleDelete(project._id)}/>
               </RoleGuard>
             </div>
           </div>

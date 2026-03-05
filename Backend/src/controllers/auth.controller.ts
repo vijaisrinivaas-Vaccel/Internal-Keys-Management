@@ -95,6 +95,8 @@ export const login = async (req: Request, res: Response) => {
       user: {
         id: user._id,
         username: user.username,
+        firstname: user.firstname,
+        lastname: user.lastname,
         email: user.email,
         role: user.role,
       },
@@ -158,11 +160,58 @@ export const getMe = async (req: Request, res: Response) => {
     }
 
     return res.json({
+      id: user._id,
       username: user.username,
+      firstname: user.firstname,
+      lastname: user.lastname,
+      employeeId: user.employeeId,
+      email: user.email,
       role: user.role,
+      jobRole: user.jobRole,
+      jobLevel: user.jobLevel,
     });
   } catch (err) {
     console.error("GET ME ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* ================= RESET PASSWORD (LOGGED-IN USER) ================= */
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { id } = (req as any).user;
+    const { newPassword, confirmPassword } = req.body as {
+      newPassword?: string;
+      confirmPassword?: string;
+    };
+
+    if (!newPassword || !confirmPassword) {
+      return res
+        .status(400)
+        .json({ message: "newPassword and confirmPassword are required" });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters" });
+    }
+
+    const user = await User.findById(id).select("+password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return res.status(200).json({ message: "Password reset successfully" });
+  } catch (err) {
+    console.error("RESET PASSWORD ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };

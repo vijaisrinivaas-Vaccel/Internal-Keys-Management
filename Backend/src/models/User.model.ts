@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from "mongoose";
 import argon2 from "argon2";
+import { JobRole, JobLevel, Permission } from "../config/accessControl";
 
 export interface UserDoc extends Document {
   firstname: string;
@@ -11,6 +12,11 @@ export interface UserDoc extends Document {
   role: "superadmin" | "admin" | "user";
   isActive: boolean;
   createdBy?: mongoose.Types.ObjectId;
+
+  jobRole?: JobRole;
+  jobLevel?: JobLevel;
+  permissions?: Permission[];
+
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -60,6 +66,27 @@ const userSchema = new Schema<UserDoc>(
       type: String,
       enum: ["superadmin", "admin", "user"],
       default: "user",
+    },
+
+    jobRole: {
+      type: String,
+      enum: [
+        "software_developer",
+        "full_stack_developer",
+        "frontend_developer",
+        "backend_developer",
+        "devops_engineer",
+      ],
+    },
+    
+    jobLevel: {
+      type: String,
+      enum: ["junior", "mid", "senior", "lead"],
+    },
+    
+    permissions: {
+      type: [String],
+      default: [],
     },
 
     isActive: {

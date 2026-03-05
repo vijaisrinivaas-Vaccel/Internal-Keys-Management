@@ -8,7 +8,7 @@ import ConfirmationDialog from "../../Components/common/ConfirmationDialog";
 interface Props {
   projectId: string;
   environmentId: string;
-  onSelectModule: (id: string) => void;
+  onSelectModule: (id: string, name: string) => void;
 }
 
 interface Module {
@@ -29,6 +29,7 @@ export default function ModulePage({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [activeModule, setActiveModule] = useState<string | null>(null);
 
   /* ================= FETCH MODULES ================= */
   const fetchModules = async () => {
@@ -41,6 +42,12 @@ export default function ModulePage({
     if (res.ok) {
       const data = await res.json();
       setModules(data);
+
+      // ✅ Auto select first module
+      if (data.length > 0) {
+        setActiveModule(data[0]._id);
+        onSelectModule(data[0]._id, data[0].moduleName);
+      }
     }
   };
 
@@ -131,7 +138,12 @@ export default function ModulePage({
       {modules.map((module) => (
         <div
           key={module._id}
-          className="flex justify-between items-center px-6 py-4 border-t border-slate-200 hover:bg-gray-100 transition"
+          className={`flex justify-between items-center px-6 py-4 border-t border-slate-200 transition
+          ${activeModule === module._id ? "bg-blue-100 text-gray-800" : "hover:bg-gray-100"}`}
+          onClick={() => {
+                setActiveModule(module._id);
+                onSelectModule(module._id, module.moduleName);
+              }}
         >
           {/* Module Name / Rename */}
           {renamingId === module._id ? (
@@ -151,7 +163,6 @@ export default function ModulePage({
           ) : (
             <span
               className="font-medium cursor-pointer text-gray-600 hover:text-blue-500"
-              onClick={() => onSelectModule(module._id)}
             >
               {module.moduleName}
             </span>
