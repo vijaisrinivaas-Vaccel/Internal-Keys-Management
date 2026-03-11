@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { authFetch } from "../../lib/auth";
-import RoleGuard from "../../Components/RoleGuard";
-import Button from "../../Components/ui/Button";
-import AlertDialog from "../../Components/ui/AlertDialog";
+import { authFetch } from "../../../lib/auth";
+import RoleGuard from "../../../Components/RoleGuard";
+import Button from "../../../Components/ui/Button";
+import AlertDialog from "../../../Components/ui/AlertDialog";
 
 interface User {
   _id: string;
@@ -105,6 +105,7 @@ export default function AssignProject() {
       if (res.ok) {
         const data = await res.json();
         setProject(data.project);
+        await fetchProject();
         setSuccessMessage("Project assigned successfully!");
         setTimeout(() => setSuccessMessage(""), 3000);
       } else {
@@ -134,6 +135,9 @@ export default function AssignProject() {
 
   return (
     <RoleGuard allowedRoles={["admin", "superadmin"]}>
+      <div className="flex justify-between items-center bg-white p-8 rounded-2xl mb-6">
+              <h1 className="text-2xl font-bold">Assign Project</h1>
+            </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow p-6">
           <div className="mb-6">

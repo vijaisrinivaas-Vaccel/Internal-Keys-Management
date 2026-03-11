@@ -14,6 +14,7 @@ export type JobRole =
 /* ================= JOB LEVELS ================= */
 
 export const JOB_LEVELS = {
+  INTERN:"intern",
   JUNIOR: "junior",
   MID: "mid",
   SENIOR: "senior",

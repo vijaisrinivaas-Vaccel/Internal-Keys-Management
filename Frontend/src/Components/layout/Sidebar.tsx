@@ -7,10 +7,11 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "../../Components/ui/Accordion";
+import { Shield, UserPen } from "lucide-react";
 
 export default function Sidebar() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `block px-3 py-2 rounded-lg text-sm transition ${
+    `block px-3 py-2 rounded-lg text-sm transition hover:bg-gray-100 ${
       isActive
         ? "bg-white text-blue-700 font-semibold shadow-sm"
         : "text-gray-700 hover:bg-white/60"
@@ -69,8 +70,9 @@ export default function Sidebar() {
           <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
             <NavLink
               to="/admin-management"
-              className="block px-3 py-2 rounded-lg text-sm text-green-700 hover:bg-white/60 transition"
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
             >
+              <Shield size={20} />
               Admin Panel
             </NavLink>
           </RoleGuard>
@@ -78,8 +80,9 @@ export default function Sidebar() {
           <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
             <NavLink
               to="/user-management"
-              className="block px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-white/60 transition"
+              className="flex items-center gap-2 px-4 py-2  text-gray-700 hover:bg-gray-100 rounded-lg transition"
             >
+              <UserPen size={20} />
               User Management
             </NavLink>
           </RoleGuard>

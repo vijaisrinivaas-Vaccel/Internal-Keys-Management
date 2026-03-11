@@ -5,70 +5,116 @@ import { Environment } from "../models/Environment.model";
 import { Module } from "../models/Module.model";
 import User from "../models/User.model";
 import mongoose from "mongoose";
+import ProjectTemplate from "../models/ProjectTemplate.model";
 
-/* ================= CREATE PROJECT ================= */
 export const createProject = async (req: Request, res: Response) => {
   try {
-    const { title, description, url } = req.body;
+    const { title, description, templateId } = req.body;
     const user = (req as any).user;
+    const file = req.file;
 
     if (!title) {
       return res.status(400).json({ message: "Project title required" });
     }
 
+    // Find template if selected
+    let selectedTemplate = null;
+    if (templateId) {
+      selectedTemplate = await ProjectTemplate.findById(templateId);
+    }
+
+    // Create the project
     const project = await Project.create({
       title,
       description,
-      url,
+      uploadedFile: file ? file.path : undefined,
       createdBy: user.id,
       createdByName: user.username || "Unknown",
+      templateId: selectedTemplate?._id,
+      templateName: selectedTemplate?.name
     });
 
-    /* ================= DEFAULT ENVIRONMENTS ================= */
-
-    const defaultEnvironments = [
-      "Development",
-      "Staging",
-      "UAT",
-      "Production",
-    ];
-
-    const defaultModules = [
-      "Database",
-      "Auth Service",
-      "S3 Storage",
-      "Payment Gateway",
-      "Email Service",
-    ];
-
-    for (const envName of defaultEnvironments) {
-      const env = await Environment.create({
-        name: envName,
-        projectId: project._id,
-        createdBy: user.id,
-        createdByName: user.username,
-      });
-
-      /* ================= CREATE MODULES ================= */
-
-      const modules = defaultModules.map((moduleName) => ({
-        moduleName,
-        projectId: project._id,
-        environmentId: env._id,
-        createdBy: user.id,
-        createdByName: user.username,
-      }));
-
-      await Module.insertMany(modules);
+    // Apply template if selected
+    if (selectedTemplate) {
+      await applyTemplateToProject(project._id, selectedTemplate, user.id, user.username);
+    } else {
+      // Use default template or fallback to hardcoded defaults
+      const defaultTemplate = await ProjectTemplate.findOne({ isGlobal: true, isActive: true })
+        .sort({ createdAt: -1 });
+      
+      if (defaultTemplate) {
+        await applyTemplateToProject(project._id, defaultTemplate, user.id, user.username);
+      } else {
+        // Fallback to hardcoded defaults
+        await createDefaultProjectStructure(project._id, user.id, user.username);
+      }
     }
 
     return res.status(201).json(project);
-
   } catch (err) {
     console.error("CREATE PROJECT ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+// Helper function to apply template
+async function applyTemplateToProject(
+  projectId: any,
+  template: any,
+  userId: string,
+  username: string
+) {
+  for (const envConfig of template.environments) {
+    const environment = await Environment.create({
+      name: envConfig.name,
+      projectId: projectId,
+      createdBy: userId,
+      createdByName: username,
+    });
+
+    const modules = envConfig.modules.map((moduleConfig: any) => ({
+      moduleName: moduleConfig.name,
+      description: moduleConfig.description,
+      projectId: projectId,
+      environmentId: environment._id,
+      createdBy: userId,
+      createdByName: username,
+    }));
+
+    if (modules.length > 0) {
+      await Module.insertMany(modules);
+    }
+  }
+}
+
+// Helper function for default structure
+async function createDefaultProjectStructure(
+  projectId: any,
+  userId: string,
+  username: string
+) {
+  const defaultEnvironments = ["Development", "Staging", "UAT", "Production"];
+  const defaultModules = ["Database", "Auth Service", "S3 Storage", "Payment Gateway", "Email Service"];
+
+  for (const envName of defaultEnvironments) {
+    const env = await Environment.create({
+      name: envName,
+      projectId: projectId,
+      createdBy: userId,
+      createdByName: username,
+    });
+
+    const modules = defaultModules.map((moduleName) => ({
+      moduleName,
+      projectId: projectId,
+      environmentId: env._id,
+      createdBy: userId,
+      createdByName: username,
+    }));
+
+    await Module.insertMany(modules);
+  }
+}
 
 /* ================= GET ALL PROJECTS (MAIN PAGE) ================= */
 export const getAllProjects = async (req: Request, res: Response) => {
@@ -180,15 +226,34 @@ export const updateProject = async (req: Request, res: Response) => {
 /* ================= DELETE PROJECT ================= */
 export const deleteProject = async (req: Request, res: Response) => {
   try {
-    const deleted = await Project.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
 
-    if (!deleted) {
+    const project = await Project.findById(id);
+
+    if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    res.json({ message: "Deleted successfully" });
-  } catch {
-    res.status(500).json({ message: "Delete failed" });
+    // 🔎 Check if any config keys exist in this project
+    const keysExist = await ConfigEntry.exists({
+      projectId: id,
+      "entries.0": { $exists: true }
+    });
+
+    if (keysExist) {
+      return res.status(400).json({
+        message: "Cannot delete project. Keys still exist in this project."
+      });
+    }
+
+    // ✅ Safe to delete
+    await Project.findByIdAndDelete(id);
+
+    return res.json({ message: "Project deleted successfully" });
+
+  } catch (err) {
+    console.error("DELETE PROJECT ERROR:", err);
+    return res.status(500).json({ message: "Delete failed" });
   }
 };
 

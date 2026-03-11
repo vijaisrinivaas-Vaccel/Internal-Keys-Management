@@ -1,72 +1,61 @@
-import { useEffect, useState } from "react";
-import { authFetch } from "../../lib/auth";
-
-interface User {
-  _id: string;
-  username: string;
-  email: string;
-  role: string;
-  isActive: boolean;
-}
+import { useState } from "react";
+import { 
+  FileText, 
+  Settings, 
+  Shield, 
+} from "lucide-react";
+import TemplateManagementTab from "../../Components/admin/TemplateManagementTab";
+import SystemSettingsTab from "../../Components/admin/SystemManagementTab";
 
 export default function AdminManagement() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [activeTab, setActiveTab] = useState< "templates" | "settings">("templates");
 
-  const fetchUsers = async () => {
-    const res = await authFetch("http://localhost:8000/api/users");
-    if (res.ok) {
-      const data = await res.json();
-      setUsers(data);
-    }
-  };
+  const tabs = [
 
-  const changeRole = async (id: string, role: string) => {
-    await authFetch(`http://localhost:8000/api/users/${id}/role`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role }),
-    });
-    fetchUsers();
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+    { id: "templates", label: "Project Templates", icon: FileText },
+    { id: "settings", label: "System Settings", icon: Settings },
+  ];
 
   return (
-    <div className="bg-white rounded-xl shadow p-6">
-      <h1 className="text-xl font-bold mb-6">Admin Management</h1>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+          <Shield className="text-blue-600" size={28} />
+          Admin Management
+        </h1>
+        <p className="text-gray-600 mt-2">
+          Project templates, and system configurations
+        </p>
+      </div>
 
-      <div className="space-y-4">
-        {users.map((user) => (
-          <div
-            key={user._id}
-            className="flex justify-between items-center border p-4 rounded-lg"
-          >
-            <div>
-              <div className="font-semibold">{user.username}</div>
-              <div className="text-sm text-gray-500">{user.email}</div>
-            </div>
+      {/* Tabs */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="flex border-b border-gray-200">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors relative ${
+                  activeTab === tab.id
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                }`}
+              >
+                <Icon size={18} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-            <div className="flex gap-3">
-              {user.role === "admin" ? (
-                <button
-                  onClick={() => changeRole(user._id, "user")}
-                  className="px-3 py-1 text-sm bg-gray-200 rounded"
-                >
-                  Demote
-                </button>
-              ) : (
-                <button
-                  onClick={() => changeRole(user._id, "admin")}
-                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
-                >
-                  Promote
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+        {/* Tab Content */}
+        <div className="p-6">
+          {activeTab === "templates" && <TemplateManagementTab />}
+          {activeTab === "settings" && <SystemSettingsTab />}
+        </div>
       </div>
     </div>
   );

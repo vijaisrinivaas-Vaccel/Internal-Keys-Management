@@ -1,12 +1,12 @@
 import mongoose, { Document, Schema } from "mongoose";
 import argon2 from "argon2";
-import { JobRole, JobLevel, Permission } from "../config/accessControl";
+import { JobRole, JobLevel, Permission , PERMISSIONS } from "../config/accessControl";
 
 export interface UserDoc extends Document {
   firstname: string;
   lastname: string;
   username: string;
-  employeeId?: number;
+  employeeId?: string;
   email: string;
   password: string;
   role: "superadmin" | "admin" | "user";
@@ -86,6 +86,7 @@ const userSchema = new Schema<UserDoc>(
     
     permissions: {
       type: [String],
+      enum: Object.values(PERMISSIONS), // if you have PERMISSIONS enum
       default: [],
     },
 

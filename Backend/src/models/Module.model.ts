@@ -18,7 +18,7 @@ const moduleSchema = new mongoose.Schema<ModuleDoc>(
       type: String,
       required: true,
       trim: true,
-      minlength: 3,
+      minlength: 2,
     },
     projectId: {
       type: mongoose.Schema.Types.ObjectId,

@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { MoreVertical, Check, ChevronDown } from "lucide-react";
 import { authFetch } from "../../../lib/auth";
 
+import PermissionGuard from "../../../Components/admin/PermissionGuard";
+import { PERMISSIONS } from "../../../userModel/User";
+
 interface Environment {
   _id: string;
   name: string;
@@ -174,7 +177,8 @@ export default function EnvironmentSelect({
 
                     {menuOpenId === env._id && (
                       <div className="absolute right-0 mt-2 w-28 bg-white border rounded-lg shadow-md z-50">
-                        <button
+                        <PermissionGuard requiredPermission={PERMISSIONS.UPDATE_ENVIRONMENT}>
+                          <button
                           onClick={() => {
                             setRenamingId(env._id);
                             setValue(env.name);
@@ -184,13 +188,16 @@ export default function EnvironmentSelect({
                         >
                           Rename
                         </button>
-
-                        <button
+                        </PermissionGuard>
+                        <PermissionGuard requiredPermission={PERMISSIONS.DELETE_ENVIRONMENT}>
+                            <button
                           onClick={() => handleDelete(env._id)}
                           className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                         >
                           Delete
                         </button>
+                        </PermissionGuard>
+                         
                       </div>
                     )}
                   </div>
@@ -220,15 +227,17 @@ export default function EnvironmentSelect({
             )}
 
             {!creating && (
-              <button
-                className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
-                onClick={() => {
-                  setCreating(true);
-                  setValue("");
-                }}
-              >
-                + Create New
-              </button>
+              <PermissionGuard requiredPermission={PERMISSIONS.CREATE_ENVIRONMENT}>
+                <button
+                  className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                  onClick={() => {
+                    setCreating(true);
+                    setValue("");
+                  }}
+                >
+                  + Create New
+                </button>
+              </PermissionGuard>
             )}
           </div>
         </div>

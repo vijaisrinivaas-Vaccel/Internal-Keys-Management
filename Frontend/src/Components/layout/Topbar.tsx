@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Crown, Shield, User, LogOut, UserPen } from "lucide-react";
 import { clearAuth, getMe, logoutRequest } from "../../lib/auth";
-import ProfilePage from "./ProfilePage";
+import ProfilePage from "../profilepage/ProfilePage";
 
 interface UserData {
   username: string;

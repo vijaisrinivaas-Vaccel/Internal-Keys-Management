@@ -31,7 +31,7 @@ export const register = async (req: Request, res: Response) => {
   try {
     const { firstname, lastname, email, password, role, employeeId } = req.body;
 
-    if (!firstname || !lastname || !email || !password || !role) {
+    if (!firstname || !lastname || !email || !password || !role || !employeeId) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
@@ -50,8 +50,23 @@ export const register = async (req: Request, res: Response) => {
     });
 
     return res.json({ message: "User registered successfully" });
-  } catch (err) {
+  } catch (err: any) {
     console.error("REGISTER ERROR:", err);
+
+    // Mongoose validation error (e.g. missing required field, minlength)
+    if (err.name === "ValidationError") {
+      const messages = Object.values(err.errors).map((e: any) => e.message);
+      return res.status(400).json({ message: messages.join(", ") });
+    }
+
+    // Duplicate key (email or employeeId already taken)
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyValue || {})[0] || "field";
+      return res
+        .status(400)
+        .json({ message: `${field} already exists` });
+    }
+
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -71,12 +86,12 @@ export const login = async (req: Request, res: Response) => {
 
     const user = await User.findOne({ email }).select("+password");
     if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid email credentials" });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid password mismatch" });
     }
 
     const accessToken = buildAccessToken(String(user._id), user.role);

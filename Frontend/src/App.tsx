@@ -9,12 +9,14 @@ import Dashboard from "./Pages/Dashboard/Dashboard";
 import ProjectLayout from "./Pages/Projects/ProjectLayout";
 import NewProject from "./Pages/Projects/NewProjects/Project";
 import ProjectDetailPage from "./Pages/Projects/NewProjects/ProjectDetailPage";
-import AssignProject from "./Pages/Projects/AssignProject";
-import ManageAssignments from "./Pages/Projects/ManageAssignments";
+import AssignProject from "./Pages/Projects/ProjectAssigning/AssignProject";
+import ManageAssignments from "./Pages/Projects/ProjectAssigning/ManageAssignments";
 import MyAssignments from "./Pages/Projects/MyAssignments";
 
 import AdminManagement from "./Pages/Admin/AdminMangement";
 import UserManagement from "./Pages/Admin/UserManagement";
+
+import SkeletonPageLoader from "./Components/Loader/SkeletonPageLoader";
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
@@ -41,7 +43,7 @@ export default function App() {
     checkAuth();
   }, []);
 
-  if (!authChecked) return <div>Loading...</div>;
+  if (!authChecked) return <SkeletonPageLoader />;
 
   return (
     <Routes>

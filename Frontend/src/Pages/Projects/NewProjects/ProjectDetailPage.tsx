@@ -5,7 +5,9 @@ import { authFetch } from "../../../lib/auth";
 import ModulePage from "../../Module/ModulePage";
 import ConfigPage from "../../Module/ConfigPage/ConfigPage";
 import EnvironmentSelect from "./EnvironmentSelect";
-import RoleGuard from "../../../Components/RoleGuard";
+
+import PermissionGuard from "../../../Components/admin/PermissionGuard";
+import { PERMISSIONS } from "../../../userModel/User";
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -70,14 +72,14 @@ export default function ProjectDetailPage() {
           {projectName}
         </h1>
 
-        <RoleGuard allowedRoles={["admin", "superadmin"]}>
+        <PermissionGuard requiredPermission={PERMISSIONS.ASSIGN_USER}>
           <Link
             to={`/project/${projectId}/assign`}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition inline-block"
           >
             Assign Project
           </Link>
-        </RoleGuard>
+        </PermissionGuard>
       </div>
 
       {/* ================= MAIN LAYOUT ================= */}

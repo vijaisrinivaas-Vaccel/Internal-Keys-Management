@@ -4,6 +4,9 @@ import { MoreVertical, Plus } from "lucide-react";
 import AddModuleDialog from "./AddModuleDialog";
 import ConfirmationDialog from "../../Components/common/ConfirmationDialog";
 
+import PermissionGuard from "../../Components/admin/PermissionGuard";
+import { PERMISSIONS } from "../../userModel/User";
+
 
 interface Props {
   projectId: string;
@@ -118,13 +121,15 @@ export default function ModulePage({
       <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200">
         <span className="font-semibold text-lg">Modules</span>
 
-        <button
-          onClick={() => setOpen(true)}
-          className="flex items-center gap-2 text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition"
-        >
-          <Plus size={16} />
-          Create
-        </button>
+        <PermissionGuard requiredPermission={PERMISSIONS.CREATE_MODULE}>
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-2 text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition"
+          >
+            <Plus size={16} />
+            Create
+          </button>
+        </PermissionGuard>
       </div>
 
       {/* Empty */}
@@ -186,32 +191,36 @@ export default function ModulePage({
               <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
               
                 {/* Rename */}
-                <button
-                  onClick={() => {
-                    setRenamingId(module._id);
-                    setRenameValue(module.moduleName);
-                    setOpenMenu(null);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition"
-                >
-                  ✏️ Rename
-                </button>
+                <PermissionGuard requiredPermission={PERMISSIONS.UPDATE_MODULE}>
+                  <button
+                    onClick={() => {
+                      setRenamingId(module._id);
+                      setRenameValue(module.moduleName);
+                      setOpenMenu(null);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                  >
+                    ✏️ Rename
+                  </button>
+                </PermissionGuard>
                 
                 {/* Divider */}
                 <div className="border-t border-slate-200" />
                 
                 {/* Delete */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteId(module._id);
-                    setConfirmOpen(true);
-                    setOpenMenu(null);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
-                >
-                  🗑 Delete
-                </button>
+                <PermissionGuard requiredPermission={PERMISSIONS.DELETE_MODULE}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteId(module._id);
+                      setConfirmOpen(true);
+                      setOpenMenu(null);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    🗑 Delete
+                  </button>
+                </PermissionGuard>
               </div>
             )}
           </div>

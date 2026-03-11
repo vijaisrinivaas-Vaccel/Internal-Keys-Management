@@ -15,6 +15,9 @@ export interface ProjectDoc extends Document {
   assignedTo?: mongoose.Types.ObjectId[];
   assignedToNames?: string[];
 
+  templateId?: mongoose.Types.ObjectId; // Add this field
+  templateName?: string; // Optional: store template name for reference
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,7 +28,7 @@ const projectSchema = new Schema<ProjectDoc>(
       type: String,
       required: true,
       trim: true,
-      minlength: 3,
+      minlength: 2,
     },
 
     description: {
@@ -78,8 +81,19 @@ const projectSchema = new Schema<ProjectDoc>(
         trim: true,
       },
     ],
+
+    // Add these new fields
+    templateId: {
+      type: Schema.Types.ObjectId,
+      ref: "ProjectTemplate",
+    },
+
+    templateName: {
+      type: String,
+      trim: true,
+    },
   },
-  { timestamps: true,}
+  { timestamps: true }
 );
 
-export const Project = mongoose.model<ProjectDoc>("Project",projectSchema);
+export const Project = mongoose.model<ProjectDoc>("Project", projectSchema);

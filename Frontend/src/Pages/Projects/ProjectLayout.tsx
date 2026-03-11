@@ -7,7 +7,7 @@ export default function ProjectLayout() {
 
   const defaultRoute: Record<string, string> = {
     superadmin: "new-project",
-    admin: "your-projects",
+    admin: "new-project",
     user: "your-projects",
   };
 

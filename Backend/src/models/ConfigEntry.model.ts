@@ -19,6 +19,7 @@ const decrypt = (hash: string) => {
   return decipher.update(encrypted, "hex", "utf8") + decipher.final("utf8");
 };
 
+
 interface Entry {
   key: string;
   value: string;
@@ -86,3 +87,4 @@ export const decryptValue = (value: string) => {
   }
   return value;
 };
+

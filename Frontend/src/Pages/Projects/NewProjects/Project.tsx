@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { authFetch } from "../../../lib/auth";
-import { EditButton, Delbutton, ReadButton } from "../../../Components/ui/Button";
-import AddProjectDialog from "./AddProjectDialog";
 import { useNavigate } from "react-router-dom";
-import RoleGuard from "../../../Components/RoleGuard";
-import { permissions, type Role } from "../../../lib/permissions";
 
+import { authFetch } from "../../../lib/auth";
+import { EditButton, Delbutton } from "../../../Components/ui/Button";
+import AddProjectDialog from "./AddProjectDialog";
+import PermissionGuard from "../../../Components/admin/PermissionGuard";
+
+import { PERMISSIONS } from "../../../userModel/User";
 
 interface Project {
   _id: string;
@@ -16,70 +17,86 @@ interface Project {
 }
 
 export default function Projects() {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const navigate= useNavigate();
-  
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const navigate = useNavigate();
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  
 
   /* ================= FETCH PROJECTS ================= */
+
   const fetchProjects = async () => {
     setLoading(true);
 
-    const res = await authFetch("http://localhost:8000/api/projects");
-    if (!res.ok) return;
+    try {
+      const res = await authFetch("http://localhost:8000/api/projects");
 
-    const data = await res.json();
-    setProjects(data);
-    setFilteredProjects(data);
-    setLoading(false);
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      setProjects(data);
+      setFilteredProjects(data);
+    } catch (err) {
+      console.error("Fetch projects error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-  
     fetchProjects();
   }, []);
 
   /* ================= SEARCH ================= */
+
   useEffect(() => {
     const filtered = projects.filter((project) =>
       project.title.toLowerCase().includes(search.toLowerCase())
     );
+
     setFilteredProjects(filtered);
   }, [search, projects]);
+
+  /* ================= EDIT ================= */
 
   const handleEdit = (project: Project) => {
     setSelectedProject(project);
     setOpen(true);
   };
 
-
   /* ================= DELETE ================= */
-  const handleDelete = async (_id: string) => {
-    const res = await authFetch(
-      `http://localhost:8000/api/projects/${_id}`,
-      {
-        method: "DELETE",
-      }
-    );
 
-    if (res.ok) fetchProjects();
+  const handleDelete = async (id: string) => {
+    const res = await authFetch(`http://localhost:8000/api/projects/${id}`, {
+      method: "DELETE",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.message);
+      return;
+    }
+
+    fetchProjects();
   };
 
   return (
     <div className="space-y-6">
 
-      {/* Header */}
+      {/* ================= HEADER ================= */}
+
       <div className="flex justify-between items-center bg-white p-8 rounded-2xl">
         <h1 className="text-2xl font-bold">Company Projects</h1>
 
         <div className="flex gap-3">
-          {/* Search */}
+
+          {/* SEARCH */}
           <input
             type="text"
             placeholder="Search project..."
@@ -88,27 +105,30 @@ export default function Projects() {
             className="border px-3 py-2 rounded-lg"
           />
 
-          {/* Add Project */}
-          {(user.role === "admin" || user.role === "superadmin") && (
+          {/* ADD PROJECT */}
+
+          <PermissionGuard requiredPermission={PERMISSIONS.CREATE_PROJECT}>
             <button
-            onClick={() => {
-              setSelectedProject(null);
-              setOpen(true);
-            }}
-            className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition"
-          >
-            + Add Project
-          </button>
-          )}
-          
+              onClick={() => {
+                setSelectedProject(null);
+                setOpen(true);
+              }}
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition"
+            >
+              + Add Project
+            </button>
+          </PermissionGuard>
+
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      {/* ================= TABLE ================= */}
 
-        {/* Table Header */}
-        <div className="grid grid-cols-7 gap-4 px-6 py-4 text-sm font-semibold text-gray-500 border-b border-slate-200">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+
+        {/* TABLE HEADER */}
+
+        <div className="grid grid-cols-7 gap-4 px-6 py-4 text-sm font-semibold text-gray-500  bg-gray-100">
           <div>S.No</div>
           <div>Title</div>
           <div>Created At</div>
@@ -117,26 +137,31 @@ export default function Projects() {
           <div className="col-span-2 text-center">Actions</div>
         </div>
 
-        {/* Loading */}
+        {/* LOADING */}
+
         {loading && (
           <div className="px-6 py-10 text-center text-gray-500">
             Loading projects...
           </div>
         )}
 
-        {/* Empty */}
+        {/* EMPTY */}
+
         {!loading && filteredProjects.length === 0 && (
           <div className="px-6 py-10 text-center text-gray-500">
             No projects found
           </div>
         )}
 
-        {/* Rows */}
+        {/* ROWS */}
+
         {filteredProjects.map((project, index) => (
           <div
             key={project._id}
-            className="grid grid-cols-7 gap-4 px-6 py-4 border-b border-slate-200 text-sm"
+            className="grid grid-cols-7 gap-4 px-6 py-4 border-t border-blue-200 text-sm text-gray-700 hover:bg-blue-100 hover:text-black"
+            onClick={() => navigate(`/project/${project._id}`)}
           >
+
             <div>{index + 1}</div>
 
             <div className="font-medium">{project.title}</div>
@@ -154,6 +179,7 @@ export default function Projects() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 underline"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   View
                 </a>
@@ -162,20 +188,39 @@ export default function Projects() {
               )}
             </div>
 
-            <div className="col-span-2 flex justify-center gap-3">
-              <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
-                <EditButton onClick={() => handleEdit(project)}/>
-              </RoleGuard>
+            {/* ACTIONS */}
 
-              <ReadButton onClick={() => navigate(`/project/${project._id}`)}/>
-               
-              <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
-                <Delbutton onClick={() => handleDelete(project._id)}/>
-              </RoleGuard>
+            <div className="col-span-2 flex justify-center gap-3">
+
+              {/* EDIT */}
+
+              <PermissionGuard requiredPermission={PERMISSIONS.UPDATE_PROJECT}>
+                <EditButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(project);
+                  }}
+                />
+              </PermissionGuard>
+
+              {/* DELETE */}
+
+              <PermissionGuard requiredPermission={PERMISSIONS.DELETE_PROJECT}>
+                <Delbutton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(project._id);
+                  }}
+                />
+              </PermissionGuard>
+
             </div>
           </div>
         ))}
       </div>
+
+      {/* ================= ADD / EDIT DIALOG ================= */}
+
       <AddProjectDialog
         open={open}
         onOpenChange={(value) => {
@@ -185,6 +230,7 @@ export default function Projects() {
         editData={selectedProject}
         onSuccess={fetchProjects}
       />
+
     </div>
   );
 }
