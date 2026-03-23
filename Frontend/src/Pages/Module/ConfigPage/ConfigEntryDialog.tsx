@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog as DialogRoot, DialogContent } from "../../../Components/ui/Dialog";
+import { Dialog as DialogRoot, DialogContent, DialogTitle, DialogDescription } from "../../../Components/ui/Dialog";
 import { authFetch } from "../../../lib/auth";
 
 
@@ -30,7 +30,7 @@ export default function ConfigEntryDialog({
   
 
   const handleSubmit = async () => {
-    if (!key || !value || !expireAt) return;
+    if (!key || !value) return;
 
     if (isEdit) {
       await authFetch(
@@ -38,7 +38,7 @@ export default function ConfigEntryDialog({
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key, value, expireAt }),
+          body: JSON.stringify({ key, value, expireAt: expireAt || null }),
         }
       );
     } else {
@@ -49,7 +49,7 @@ export default function ConfigEntryDialog({
           projectId,
           environmentId,
           moduleId,
-          entries: [{ key, value, expireAt }],
+          entries: [{ key, value, expireAt: expireAt || null }],
         }),
       });
     }
@@ -73,9 +73,12 @@ export default function ConfigEntryDialog({
   return (
     <DialogRoot open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-6 rounded-xl h-110">
-        <h2 className="text-xl font-semibold mb-5">
+        <DialogTitle className="text-xl font-semibold mb-5">
           {isEdit ? "Edit Config Entry" : "Add Config Entry"}
-        </h2>
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {isEdit ? "Edit an existing configuration entry" : "Create a new configuration entry"}
+        </DialogDescription>
 
         {/* Key */}
         <div className="mb-4">

@@ -4,7 +4,7 @@ import Topbar from "../../Components/layout/Topbar";
 
 export default function DashboardLayout() {
   return (
-    <div className="flex h-screen bg-blue-100">
+    <div className="flex h-screen bg-blue-100 dark:bg-slate-950 transition-colors duration-300">
       {/* Sidebar */}
       <Sidebar />
       

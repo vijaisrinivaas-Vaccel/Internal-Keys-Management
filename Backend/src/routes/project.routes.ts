@@ -2,7 +2,8 @@ import { Router } from "express";
 import multer from "multer";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { 
-  createProject, getProjectsForModule, updateProject, deleteProject, getAllProjects, getProjectById, assignProject
+  createProject, getProjectsForModule, updateProject, deleteProject, getAllProjects, getProjectById, assignProject,
+  getUserProjectPermissions
  } from "../controllers/project.controller";
 
 const storage = multer.diskStorage({
@@ -31,6 +32,12 @@ router.put(
   authMiddleware,
   upload.single("file"),
   updateProject
+);
+
+router.get(
+  "/:projectId/users/:userId/permissions",
+  authMiddleware,
+  getUserProjectPermissions
 );
 
 router.delete("/:id", authMiddleware, deleteProject);

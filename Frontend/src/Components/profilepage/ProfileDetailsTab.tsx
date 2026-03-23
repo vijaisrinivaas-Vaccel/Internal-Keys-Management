@@ -1,39 +1,20 @@
 // profilePage/ProfileDetailsTab.tsx
-import { KeyRound } from "lucide-react";
 import type { ProfileData } from "./ProfilePage";
 
 interface ProfileDetailsTabProps {
   profile: ProfileData;
   form: ProfileData;
   editMode: boolean;
-  isOwnProfile: boolean;
-  isAdmin: boolean;
   isSuperAdmin: boolean;
-  newPassword: string;
-  confirmPassword: string;
-  resetMessage: string;
-  isResetting: boolean;
   onFieldChange: (field: string, value: string) => void;
-  onPasswordChange: (value: string) => void;
-  onConfirmPasswordChange: (value: string) => void;
-  onResetPassword: () => void;
 }
 
 export default function ProfileDetailsTab({
   profile,
   form,
   editMode,
-  isOwnProfile,
-  isAdmin,
   isSuperAdmin,
-  newPassword,
-  confirmPassword,
-  resetMessage,
-  isResetting,
   onFieldChange,
-  onPasswordChange,
-  onConfirmPasswordChange,
-  onResetPassword,
 }: ProfileDetailsTabProps) {
   return (
     <>
@@ -48,17 +29,15 @@ export default function ProfileDetailsTab({
           <p className="text-sm text-gray-500">@{profile.username}</p>
         </div>
         <div className="flex gap-2">
-          <span className={`text-xs px-3 py-1 rounded-full ${
-            profile.role === "superadmin" ? "bg-purple-100 text-purple-700" :
-            profile.role === "admin" ? "bg-blue-100 text-blue-700" :
-            "bg-gray-100 text-gray-700"
-          }`}>
+          <span className={`text-xs px-3 py-1 rounded-full ${profile.role === "superadmin" ? "bg-purple-100 text-purple-700" :
+              profile.role === "admin" ? "bg-blue-100 text-blue-700" :
+                "bg-gray-100 text-gray-700"
+            }`}>
             {profile.role}
           </span>
           {profile.isActive !== undefined && (
-            <span className={`text-xs px-3 py-1 rounded-full ${
-              profile.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
-            }`}>
+            <span className={`text-xs px-3 py-1 rounded-full ${profile.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
+              }`}>
               {profile.isActive ? "Active" : "Inactive"}
             </span>
           )}
@@ -127,46 +106,6 @@ export default function ProfileDetailsTab({
           />
         )}
       </div>
-
-      {/* RESET PASSWORD */}
-      {(isOwnProfile || isAdmin || isSuperAdmin) && (
-        <div className="border rounded-lg p-4 space-y-3 bg-gray-50">
-          <div className="flex items-center gap-2 font-semibold text-gray-700">
-            <KeyRound size={16} />
-            Reset Password
-          </div>
-
-          <input
-            type="password"
-            placeholder="New password"
-            value={newPassword}
-            onChange={(e) => onPasswordChange(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-
-          <input
-            type="password"
-            placeholder="Confirm new password"
-            value={confirmPassword}
-            onChange={(e) => onConfirmPasswordChange(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-
-          <button
-            onClick={onResetPassword}
-            disabled={isResetting}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors disabled:bg-blue-300"
-          >
-            {isResetting ? "Resetting..." : "Reset Password"}
-          </button>
-
-          {resetMessage && (
-            <p className={`text-xs ${resetMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
-              {resetMessage}
-            </p>
-          )}
-        </div>
-      )}
     </>
   );
 }

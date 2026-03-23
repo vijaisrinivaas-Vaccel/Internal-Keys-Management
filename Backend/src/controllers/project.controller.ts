@@ -6,6 +6,7 @@ import { Module } from "../models/Module.model";
 import User from "../models/User.model";
 import mongoose from "mongoose";
 import ProjectTemplate from "../models/ProjectTemplate.model";
+import ProjectUserPermission from "../models/ProjectUserPermission.model";
 
 export const createProject = async (req: Request, res: Response) => {
   try {
@@ -262,6 +263,7 @@ export const assignProject = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     const { userIds } = req.body;
+    const currentUser = (req as any).user;
 
     if (!Array.isArray(userIds)) {
       return res.status(400).json({ message: "userIds must be an array" });
@@ -273,12 +275,13 @@ export const assignProject = async (req: Request, res: Response) => {
 
     const users = await User.find(
       { _id: { $in: validUserIds } },
-      { username: 1 }
+      { firstname: 1, lastname: 1, username: 1 }
     ).lean();
 
     const assignedTo = users.map((u) => u._id);
-    const assignedToNames = users.map((u) => u.username);
+    const assignedToNames = users.map((u) => u.username || `${u.firstname} ${u.lastname}`);
 
+    // Update project with basic assignment info
     const updated = await Project.findByIdAndUpdate(
       projectId,
       {
@@ -292,9 +295,75 @@ export const assignProject = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    return res.json(updated);
+    // Initialize default permissions for each assigned user
+    // This creates permission documents with READ-only access by default
+    for (const userId of validUserIds) {
+      // Check if permissions already exist
+      const existingPerms = await ProjectUserPermission.findOne({
+        projectId,
+        userId
+      });
+
+      if (!existingPerms) {
+        // Get all environments for this project
+        const environments = await Environment.find({ projectId });
+        
+        // Create default permissions structure
+        const defaultEnvironments = await Promise.all(environments.map(async (env) => {
+          // Get all modules for this environment
+          const modules = await Module.find({ 
+            projectId, 
+            environmentId: env._id 
+          });
+
+          return {
+            environmentId: env._id,
+            permissions: ["READ_ENVIRONMENT"], // Default read access
+            modules: modules.map(module => ({
+              moduleId: module._id,
+              permissions: ["READ_MODULE"], // Default read access
+              configEntries: [] // No config access by default
+            }))
+          };
+        }));
+
+        // Create permission document
+        await ProjectUserPermission.create({
+          projectId,
+          userId,
+          environments: defaultEnvironments,
+          grantedBy: currentUser.id,
+          grantedByName: currentUser.username || currentUser.email
+        });
+      }
+    }
+
+    return res.json({
+      message: "Project assigned successfully",
+      project: updated
+    });
   } catch (err) {
     console.error("ASSIGN PROJECT ERROR:", err);
     return res.status(500).json({ message: "Assign failed" });
+  }
+};
+
+export const getUserProjectPermissions = async (req: Request, res: Response) => {
+  try {
+    const { projectId, userId } = req.params;
+
+    const permissions = await ProjectUserPermission.findOne({
+      projectId,
+      userId
+    });
+
+    if (!permissions) {
+      return res.status(404).json({ message: "No permissions found" });
+    }
+
+    res.json(permissions);
+  } catch (err) {
+    console.error("GET USER PERMISSIONS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };

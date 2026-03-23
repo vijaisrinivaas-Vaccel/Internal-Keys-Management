@@ -1,15 +1,78 @@
 import mongoose, { Document, Schema } from "mongoose";
 import { Permission, PERMISSIONS } from "../config/accessControl";
 
+export interface ConfigEntryPermission {
+  configId: mongoose.Types.ObjectId;
+  permissions: Permission[];
+}
+
+export interface ModulePermission {
+  moduleId: mongoose.Types.ObjectId;
+  permissions: Permission[];
+  accessAll: boolean;
+  configEntries?: ConfigEntryPermission[];
+}
+
+export interface EnvironmentPermission {
+  environmentId: mongoose.Types.ObjectId;
+  permissions: Permission[];
+  modules?: ModulePermission[];
+}
+
 export interface ProjectUserPermissionDoc extends Document {
   projectId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
-  permissions: Permission[];
+  environments: EnvironmentPermission[];
   grantedBy: mongoose.Types.ObjectId;
   grantedByName: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const configEntryPermissionSchema = new Schema({
+  configId: {
+    type: Schema.Types.ObjectId,
+    ref: "ConfigEntry",
+    required: true,
+  },
+  permissions: {
+    type: [String],
+    enum: Object.values(PERMISSIONS),
+    default: [],
+  },
+});
+
+const modulePermissionSchema = new Schema({
+  moduleId: {
+    type: Schema.Types.ObjectId,
+    ref: "Module",
+    required: true,
+  },
+  permissions: {
+    type: [String],
+    enum: Object.values(PERMISSIONS),
+    default: [],
+  },
+  accessAll: {
+    type: Boolean,
+    default: false,
+  },
+  configEntries: [configEntryPermissionSchema],
+});
+
+const environmentPermissionSchema = new Schema({
+  environmentId: {
+    type: Schema.Types.ObjectId,
+    ref: "Environment",
+    required: true,
+  },
+  permissions: {
+    type: [String],
+    enum: Object.values(PERMISSIONS),
+    default: ["READ_ENVIRONMENT"], // Default permission when assigned
+  },
+  modules: [modulePermissionSchema],
+});
 
 const projectUserPermissionSchema = new Schema<ProjectUserPermissionDoc>(
   {
@@ -23,11 +86,7 @@ const projectUserPermissionSchema = new Schema<ProjectUserPermissionDoc>(
       ref: "User",
       required: true,
     },
-    permissions: {
-      type: [String],
-      enum: Object.values(PERMISSIONS),
-      default: [],
-    },
+    environments: [environmentPermissionSchema],
     grantedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

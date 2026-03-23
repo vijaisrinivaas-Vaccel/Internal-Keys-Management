@@ -1,18 +1,16 @@
 import { Router } from "express";
-import { authMiddleware, authorizeRoles } from "../middlewares/auth.middleware";
-import { createModule, getModules, deleteModule, updateModule } from "../controllers/module.controller";
+import { authMiddleware } from "../middlewares/auth.middleware";
+import { createModule, getModules, deleteModule, updateModule, setParentModule } from "../controllers/module.controller";
 
 const router = Router();
 
-router.get("/", authMiddleware, getModules);
-router.delete("/:id", authMiddleware, authorizeRoles("superadmin") , deleteModule);
-router.put("/:id", authMiddleware, updateModule);
+router.use(authMiddleware);
 
-router.post(
-  "/",
-  authMiddleware,
-  authorizeRoles("superadmin"), // only superadmin can create
-  createModule
-);
+router.post("/",createModule);
+router.get("/", getModules);
+router.delete("/:id" , deleteModule);
+router.put("/:id/set-parent", setParentModule);
+router.put("/:id", updateModule);
+
 
 export default router;

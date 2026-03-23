@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Crown, Shield, User, LogOut, UserPen } from "lucide-react";
+import { Crown, Shield, User, LogOut, UserPen, Sun, Moon } from "lucide-react";
 import { clearAuth, getMe, logoutRequest } from "../../lib/auth";
 import ProfilePage from "../profilepage/ProfilePage";
+import { useTheme } from "../../context/ThemeContext";
 
 interface UserData {
   username: string;
@@ -20,6 +21,7 @@ export default function Topbar() {
   const [open, setOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -93,15 +95,26 @@ export default function Topbar() {
 
   return (
     <>
-      <header className="h-16 bg-white shadow-md flex items-center justify-between px-8">
-        <div></div>
-
+      <header className="h-16 bg-white dark:bg-slate-900 shadow-md flex items-center justify-between px-8 dark:border-slate-800 transition-colors duration-300">
         <div className="flex items-center gap-4">
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${roleConfig.bgColor} ${roleConfig.borderColor}`}
+          
+        </div>
+
+        <div className="flex items-center gap-6">
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-slate-700 transition-all duration-300 shadow-sm"
+            title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
           >
-            <RoleIcon size={16} className={roleConfig.textColor} />
-            <span className={`text-xs font-semibold ${roleConfig.textColor}`}>
+            {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
+          </button>
+
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${roleConfig.bgColor} ${roleConfig.borderColor} dark:bg-slate-800 dark:border-slate-700`}
+          >
+            <RoleIcon size={16} className={`${roleConfig.textColor} dark:text-gray-300`} />
+            <span className={`text-xs font-semibold ${roleConfig.textColor} dark:text-gray-300`}>
               {roleConfig.label}
             </span>
           </div>
@@ -117,18 +130,18 @@ export default function Topbar() {
             </div>
 
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-semibold text-gray-800">
+              <span className="text-sm font-semibold text-gray-800 dark:text-white">
                 {user.firstname && user.lastname
                   ? `${user.firstname} ${user.lastname}`
                   : user.username}
               </span>
-              <span className="text-xs text-gray-500 truncate">
+              <span className="text-xs text-gray-500 dark:text-slate-400 truncate">
                 {user.email || "No email"}
               </span>
             </div>
 
             <svg
-              className={`w-4 h-4 text-gray-600 transition-transform ${open ? "rotate-180" : ""}`}
+              className={`w-4 h-4 text-gray-600 dark:text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -144,20 +157,20 @@ export default function Topbar() {
         </div>
 
         {open && (
-          <div className="absolute top-16 right-8 bg-white shadow-xl rounded-lg w-48 border border-gray-200 z-50">
-            <div className="divide-y divide-gray-200">
+          <div className="absolute top-16 right-8 bg-white dark:bg-slate-900 shadow-xl rounded-xl w-48 border border-gray-200 dark:border-slate-700 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="divide-y divide-gray-100 dark:divide-slate-800">
               <div
-                className="px-4 py-2 hover:bg-gray-50 cursor-pointer transition flex items-center gap-2 text-sm text-gray-700 font-medium"
+                className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer transition flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300 font-medium"
                 onClick={() => {
                   setIsProfileOpen(true);
                   setOpen(false);
                 }}
               >
-                <UserPen size={16} />
+                <UserPen size={16} className="text-blue-500" />
                 Profile
               </div>
               <div
-                className="px-4 py-2 hover:bg-red-50 cursor-pointer transition flex items-center gap-2 text-sm text-red-600 font-semibold"
+                className="px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition flex items-center gap-2 text-sm text-red-600 dark:text-red-400 font-semibold"
                 onClick={logout}
               >
                 <LogOut size={16} />

@@ -15,8 +15,8 @@ export interface ProjectDoc extends Document {
   assignedTo?: mongoose.Types.ObjectId[];
   assignedToNames?: string[];
 
-  templateId?: mongoose.Types.ObjectId; // Add this field
-  templateName?: string; // Optional: store template name for reference
+  templateId?: mongoose.Types.ObjectId;
+  templateName?: string;
 
   createdAt: Date;
   updatedAt: Date;

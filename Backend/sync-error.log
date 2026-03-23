@@ -1,0 +1,11 @@
+ValidationError: ConfigEntry validation failed: createdByName: Path `createdByName` is required., createdBy: Path `createdBy` is required.
+    at model.Document.invalidate (C:\Users\welcome\Desktop\V-Accel_Learning_Projects\Project_Keys_Management\Backend\node_modules\mongoose\lib\document.js:3405:32)
+    at validatePath (C:\Users\welcome\Desktop\V-Accel_Learning_Projects\Project_Keys_Management\Backend\node_modules\mongoose\lib\document.js:3177:13)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Promise.all (index 0)
+    at model.$__validate (C:\Users\welcome\Desktop\V-Accel_Learning_Projects\Project_Keys_Management\Backend\node_modules\mongoose\lib\document.js:3118:3)
+    at model.validate (C:\Users\welcome\Desktop\V-Accel_Learning_Projects\Project_Keys_Management\Backend\node_modules\mongoose\lib\document.js:2687:5)
+    at model.validateBeforeSavePreSave (C:\Users\welcome\Desktop\V-Accel_Learning_Projects\Project_Keys_Management\Backend\node_modules\mongoose\lib\plugins\validateBeforeSave.js:39:5)
+    at Kareem.execPre (C:\Users\welcome\Desktop\V-Accel_Learning_Projects\Project_Keys_Management\Backend\node_modules\kareem\index.js:70:24)
+    at model.$__save (C:\Users\welcome\Desktop\V-Accel_Learning_Projects\Project_Keys_Management\Backend\node_modules\mongoose\lib\model.js:371:5)
+    at model.save (C:\Users\welcome\Desktop\V-Accel_Learning_Projects\Project_Keys_Management\Backend\node_modules\mongoose\lib\model.js:614:5)

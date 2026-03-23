@@ -65,9 +65,9 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="projects" element={<ProjectLayout />}>
             <Route path="new-project" element={<NewProject />} />
+            <Route path="manage-assignments" element={<ManageAssignments />} />
+            <Route path="assigned" element={<MyAssignments />} />
           </Route>
-          <Route path="projects/manage-assignments" element={<ManageAssignments />} />
-          <Route path="projects/assigned" element={<MyAssignments />} />
           <Route path="project/:projectId" element={<ProjectDetailPage />} />
           <Route path="project/:projectId/assign" element={<AssignProject />} />
           <Route path="admin-management" element={<AdminManagement />} />

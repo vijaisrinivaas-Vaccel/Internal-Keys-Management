@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { X, UserCircle2, Save, Edit2, Shield } from "lucide-react";
 import { authFetch } from "../../lib/auth";
-import { PERMISSIONS, type Permission } from "../../userModel/User";
+import { type Permission } from "../../userModel/User";
 import ProfileDetailsTab from "./ProfileDetailsTab";
 import ProfilePermissionsTab from "./ProfilePermissionsTab";
 
@@ -46,20 +46,12 @@ export default function ProfilePage({
   const [editMode, setEditMode] = useState(false);
   const [permissionEditMode, setPermissionEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "permissions">("profile");
-  
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [resetMessage, setResetMessage] = useState("");
-  const [isResetting, setIsResetting] = useState(false);
+
   const [saveError, setSaveError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  
-  // Projects state
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string>("");
-  const [projectPermissions, setProjectPermissions] = useState<Record<string, Permission[]>>({});
-  const [loadingProjects, setLoadingProjects] = useState(false);
+
+  const [detailedPermissions, setDetailedPermissions] = useState<any[]>([]);
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
@@ -81,7 +73,7 @@ export default function ProfilePage({
         const data = await res.json();
         setProfile(data);
         setForm(data);
-        
+
         if (data._id === currentUser._id) {
           localStorage.setItem("user", JSON.stringify(data));
         }
@@ -93,39 +85,23 @@ export default function ProfilePage({
     fetchProfile();
   }, [open, user]);
 
-  /* ================= FETCH PROJECTS ================= */
+  /* ================= FETCH DETAILED PERMISSIONS ================= */
   useEffect(() => {
     if (!open || !profile?._id || activeTab !== "permissions") return;
 
-    const fetchUserProjects = async () => {
-      setLoadingProjects(true);
+    const fetchDetailedPermissions = async () => {
       try {
-        // Fetch all projects
-        const res = await authFetch(`${API_BASE_URL}/projects`);
-        if (res.ok) {
-          const allProjects = await res.json();
-          setProjects(allProjects);
-          
-          // If first project, select it
-          if (allProjects.length > 0 && !selectedProject) {
-            setSelectedProject(allProjects[0]._id);
-          }
-        }
-
-        // Fetch user's permissions for projects
-        const permRes = await authFetch(`${API_BASE_URL}/projectPermission/users/${profile._id}/project-permissions`);
-        if (permRes.ok) {
-          const data = await permRes.json();
-          setProjectPermissions(data);
+        const detailedPermRes = await authFetch(`${API_BASE_URL}/projectPermission/users/${profile._id}/detailed-permissions`);
+        if (detailedPermRes.ok) {
+          const detailedData = await detailedPermRes.json();
+          setDetailedPermissions(detailedData);
         }
       } catch (err) {
-        console.error("Error fetching projects:", err);
-      } finally {
-        setLoadingProjects(false);
+        console.error("Error fetching detailed permissions:", err);
       }
     };
 
-    fetchUserProjects();
+    fetchDetailedPermissions();
   }, [open, profile?._id, activeTab]);
 
   /* ================= HANDLE CHANGE ================= */
@@ -134,36 +110,6 @@ export default function ProfilePage({
       ...prev!,
       [field]: value,
     }));
-  };
-
-  /* ================= HANDLE PERMISSION TOGGLE ================= */
-  const handlePermissionToggle = (permission: Permission) => {
-    if (!form) return;
-    
-    const currentPerms = form.permissions || [];
-    const newPerms = currentPerms.includes(permission)
-      ? currentPerms.filter(p => p !== permission)
-      : [...currentPerms, permission];
-    
-    setForm({
-      ...form,
-      permissions: newPerms
-    });
-  };
-
-  /* ================= HANDLE PROJECT PERMISSION TOGGLE ================= */
-  const handleProjectPermissionToggle = (projectId: string, permission: Permission) => {
-    setProjectPermissions(prev => {
-      const currentPerms = prev[projectId] || [];
-      const newPerms = currentPerms.includes(permission)
-        ? currentPerms.filter(p => p !== permission)
-        : [...currentPerms, permission];
-      
-      return {
-        ...prev,
-        [projectId]: newPerms
-      };
-    });
   };
 
   /* ================= CHECK EDIT PERMISSION ================= */
@@ -180,7 +126,7 @@ export default function ProfilePage({
   /* ================= SAVE PROFILE ================= */
   const saveProfile = async () => {
     if (!form?._id) return;
-    
+
     setSaveError("");
     setSuccessMessage("");
     setIsSaving(true);
@@ -210,7 +156,7 @@ export default function ProfilePage({
       setEditMode(false);
       setPermissionEditMode(false);
       setSuccessMessage("Profile updated successfully!");
-      
+
       if (data._id === currentUser._id) {
         localStorage.setItem("user", JSON.stringify(data));
       }
@@ -228,35 +174,8 @@ export default function ProfilePage({
     }
   };
 
-  /* ================= SAVE PROJECT PERMISSIONS ================= */
-  const saveProjectPermissions = async () => {
-    if (!profile?._id || !selectedProject) return;
-    
-    setIsSaving(true);
-    try {
-      const res = await authFetch(`${API_BASE_URL}/projectPermission/projects/${selectedProject}/user-permissions/${profile._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          permissions: projectPermissions[selectedProject] || []
-        }),
-      });
-
-      if (res.ok) {
-        setSuccessMessage("Project permissions updated!");
-        setTimeout(() => setSuccessMessage(""), 3000);
-      }
-    } catch (err) {
-      console.error("Error saving project permissions:", err);
-      setSaveError("Failed to save project permissions");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   if (!profile || !form) return null;
 
-  const isOwnProfile = currentUser._id === profile._id;
   const isSuperAdmin = currentUser.role === "superadmin";
   const isAdmin = currentUser.role === "admin";
 
@@ -265,16 +184,14 @@ export default function ProfilePage({
       {/* BACKDROP */}
       <div
         onClick={onClose}
-        className={`fixed inset-0 bg-black/30 transition-opacity duration-300 z-40 ${
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
+        className={`fixed inset-0 bg-black/30 transition-opacity duration-300 z-40 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
       />
 
       {/* PANEL */}
       <aside
-        className={`fixed top-0 right-0 h-screen w-full md:w-[35vw] min-w-[380px] max-w-140 bg-white shadow-2xl z-50 transform transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 h-screen w-full md:w-[35vw] min-w-[380px] max-w-140 bg-white shadow-2xl z-50 transform transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         <div className="h-full flex flex-col">
 
@@ -357,11 +274,10 @@ export default function ProfilePage({
           <div className="flex border-b border-gray-200 px-6">
             <button
               onClick={() => setActiveTab("profile")}
-              className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === "profile"
+              className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${activeTab === "profile"
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <UserCircle2 size={16} />
@@ -371,11 +287,10 @@ export default function ProfilePage({
             {(isSuperAdmin || isAdmin) && (
               <button
                 onClick={() => setActiveTab("permissions")}
-                className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${
-                  activeTab === "permissions"
+                className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${activeTab === "permissions"
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Shield size={16} />
@@ -406,19 +321,8 @@ export default function ProfilePage({
                 profile={profile}
                 form={form}
                 editMode={editMode}
-                isOwnProfile={isOwnProfile}
-                isAdmin={isAdmin}
                 isSuperAdmin={isSuperAdmin}
-                newPassword={newPassword}
-                confirmPassword={confirmPassword}
-                resetMessage={resetMessage}
-                isResetting={isResetting}
                 onFieldChange={handleChange}
-                onPasswordChange={(pw) => setNewPassword(pw)}
-                onConfirmPasswordChange={(pw) => setConfirmPassword(pw)}
-                onResetPassword={() => {
-                  // Reset password logic here
-                }}
               />
             )}
 
@@ -426,17 +330,7 @@ export default function ProfilePage({
             {activeTab === "permissions" && (
               <ProfilePermissionsTab
                 profile={profile}
-                form={form}
-                projects={projects}
-                selectedProject={selectedProject}
-                projectPermissions={projectPermissions}
-                loadingProjects={loadingProjects}
-                permissionEditMode={permissionEditMode}
-                isSaving={isSaving}
-                onPermissionToggle={handlePermissionToggle}
-                onProjectPermissionToggle={handleProjectPermissionToggle}
-                onProjectChange={setSelectedProject}
-                onSaveProjectPermissions={saveProjectPermissions}
+                detailedPermissions={detailedPermissions}
               />
             )}
           </div>

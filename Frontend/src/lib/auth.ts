@@ -1,5 +1,4 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
-
 const ACCESS_TOKEN_KEY = "token";
 
 export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -11,31 +10,42 @@ export const setAccessToken = (token: string) => {
 export const clearAuth = () => {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem("user");
-  
 };
 
 export const refreshAccessToken = async (): Promise<string | null> => {
-  const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  });
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
 
-  if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("Token refresh failed:", res.status);
+      return null;
+    }
 
-  const data = await res.json();
-  if (!data.accessToken) return null;
+    const data = await res.json();
+    if (!data.accessToken) return null;
 
-  setAccessToken(data.accessToken);
-  return data.accessToken as string;
+    setAccessToken(data.accessToken);
+    return data.accessToken;
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    return null;
+  }
 };
 
 export const authFetch = async (
   url: string,
   init: RequestInit = {}
 ): Promise<Response> => {
+  // First attempt with current token
   const token = getAccessToken();
   const headers = new Headers(init.headers || {});
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
   let response = await fetch(url, {
     ...init,
@@ -43,19 +53,26 @@ export const authFetch = async (
     credentials: "include",
   });
 
-  if (response.status !== 401) return response;
+  // If unauthorized and we have a token, try to refresh once
+  if (response.status === 401 && token) {
+    
+    const newToken = await refreshAccessToken();
+    
+    if (newToken) {
 
-  const toRefreshAccessToken = await refreshAccessToken();
-  if (!toRefreshAccessToken) return response;
-
-  const retryHeaders = new Headers(init.headers || {});
-  retryHeaders.set("Authorization", `Bearer ${toRefreshAccessToken}`);
-
-  response = await fetch(url, {
-    ...init,
-    headers: retryHeaders,
-    credentials: "include",
-  });
+      const retryHeaders = new Headers(init.headers || {});
+      retryHeaders.set("Authorization", `Bearer ${newToken}`);
+      
+      response = await fetch(url, {
+        ...init,
+        headers: retryHeaders,
+        credentials: "include",
+      });
+    } else {
+      console.error("Token refresh failed");
+      
+    }
+  }
 
   return response;
 };
@@ -65,9 +82,7 @@ export const getMe = () => authFetch(`${API_BASE_URL}/auth/me`);
 export const loginRequest = (email: string, password: string) =>
   fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
     credentials: "include",
   });

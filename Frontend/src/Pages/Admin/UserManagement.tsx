@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { authFetch } from "../../lib/auth";
 import ProfilePage from "../../Components/profilepage/ProfilePage";
-import { Search, Users, UserCheck, UserX, MoreVertical, Shield, ShieldAlert, ShieldUser, ShieldOff } from "lucide-react";
+import CreateUserDialog from "../../Components/admin/CreateUserDialog";
+import { Search, Users, UserCheck, UserX, MoreVertical, Shield, ShieldAlert, ShieldUser, ShieldOff, UserPlus } from "lucide-react";
 
 interface User {
   _id: string;
@@ -28,6 +29,7 @@ export default function UserManagement() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [roleChangeModal, setRoleChangeModal] = useState<{ user: User; open: boolean } | null>(null);
   const [updatingRole, setUpdatingRole] = useState(false);
+  const [createUserOpen, setCreateUserOpen] = useState(false);
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
@@ -221,13 +223,26 @@ export default function UserManagement() {
     <div className="space-y-6 min-h-screen">
       {/* HEADER */}
       <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-          <Users className="text-blue-600" size={28} />
-          User Management
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Manage developers in the system and monitor their access status.
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+              <Users className="text-blue-600" size={28} />
+              User Management
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Manage developers in the system and monitor their access status.
+            </p>
+          </div>
+          {(currentUser.role === "admin" || currentUser.role === "superadmin") && (
+            <button
+              onClick={() => setCreateUserOpen(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <UserPlus size={18} />
+              Create User
+            </button>
+          )}
+        </div>
       </div>
 
       {/* USER STATS */}
@@ -586,6 +601,10 @@ export default function UserManagement() {
           onUserUpdated={handleUserUpdated}
         />
       )}
+      <CreateUserDialog
+        open={createUserOpen}
+        onOpenChange={setCreateUserOpen}
+        onSuccess={fetchUsers} />
     </div>
   );
 }

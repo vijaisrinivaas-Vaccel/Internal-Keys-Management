@@ -3,11 +3,17 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 import {
   createEnvironment,
   getEnvironments,
+  updateEnvironment,
+  deleteEnvironment,
 } from "../controllers/environment.controller";
 
 const router = Router();
 
-router.post("/", authMiddleware, createEnvironment);
-router.get("/", authMiddleware, getEnvironments);
+router.use(authMiddleware);
+
+router.post("/", createEnvironment);
+router.get("/", getEnvironments);
+router.put("/:id", updateEnvironment);
+router.delete("/:id", deleteEnvironment);
 
 export default router;

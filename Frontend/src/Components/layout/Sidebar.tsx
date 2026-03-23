@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import RoleGuard from "../../Components/RoleGuard";
 import { permissions, type Role } from "../../lib/permissions";
 import {
@@ -10,19 +10,20 @@ import {
 import { Shield, UserPen } from "lucide-react";
 
 export default function Sidebar() {
+  const location = useLocation();
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `block px-3 py-2 rounded-lg text-sm transition hover:bg-gray-100 ${
+    `block px-3 py-2 rounded-lg text-sm transition-all duration-200 hover:bg-gray-100 dark:hover:bg-slate-800 ${
       isActive
-        ? "bg-white text-blue-700 font-semibold shadow-sm"
-        : "text-gray-700 hover:bg-white/60"
+        ? "bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-400 font-semibold shadow-sm border dark:border-slate-700"
+        : "text-gray-700 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-800/60"
     }`;
 
   return (
-    <aside className="w-64 bg-blue-200 h-screen">
-      <div className="bg-white shadow-md h-full flex flex-col p-6">
+    <aside className="w-64 bg-blue-200 dark:bg-slate-950 h-screen transition-colors duration-300">
+      <div className="bg-white dark:bg-slate-900 shadow-md h-full flex flex-col p-6 dark:border-slate-800">
 
         {/* Logo / Title */}
-        <h1 className="text-xl font-bold text-blue-700 mb-8 tracking-wide">
+        <h1 className="text-xl font-bold text-blue-600 mb-8 tracking-wide">
           KeyAccel
         </h1>
 
@@ -38,13 +39,23 @@ export default function Sidebar() {
           <Accordion type="single" collapsible>
             <AccordionItem value="projects" className="border-none">
               
-              <AccordionTrigger className="px-3 py-2 rounded-lg text-sm font-medium text-gray-800 hover:bg-white/60 hover:no-underline">
+              <AccordionTrigger className="px-3 py-2 rounded-lg text-sm font-medium text-gray-800 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/60 hover:no-underline transition-colors">
                 Projects
               </AccordionTrigger>
 
               <AccordionContent className="pl-4 mt-1 space-y-1">
                 <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
-                  <NavLink to="/projects" className={linkClass}>
+                  <NavLink
+                    to="/projects"
+                    className={({ isActive }) =>
+                      linkClass({
+                        isActive:
+                          isActive &&
+                          !location.pathname.includes("manage-assignments") &&
+                          !location.pathname.includes("assigned"),
+                      })
+                    }
+                  >
                     All Projects
                   </NavLink>
                 </RoleGuard>
@@ -65,14 +76,14 @@ export default function Sidebar() {
         </div>
 
         {/* ================= BOTTOM SECTION ================= */}
-        <div className="border-t border-blue-300 pt-4 space-y-3">
+        <div className="border-t border-blue-300 dark:border-slate-800 pt-4 space-y-3">
 
           <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
             <NavLink
               to="/admin-management"
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             >
-              <Shield size={20} />
+              <Shield size={20} className="text-blue-500" />
               Admin Panel
             </NavLink>
           </RoleGuard>
@@ -80,9 +91,9 @@ export default function Sidebar() {
           <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
             <NavLink
               to="/user-management"
-              className="flex items-center gap-2 px-4 py-2  text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             >
-              <UserPen size={20} />
+              <UserPen size={20} className="text-purple-500" />
               User Management
             </NavLink>
           </RoleGuard>

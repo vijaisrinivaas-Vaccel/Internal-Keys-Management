@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { authFetch } from "../../../lib/auth";
-
 import ModulePage from "../../Module/ModulePage";
 import ConfigPage from "../../Module/ConfigPage/ConfigPage";
 import EnvironmentSelect from "./EnvironmentSelect";
-
 import PermissionGuard from "../../../Components/admin/PermissionGuard";
 import { PERMISSIONS } from "../../../userModel/User";
+import { ArrowLeftIcon } from "lucide-react";
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -18,18 +17,27 @@ export default function ProjectDetailPage() {
   const [selectedEnvironment, setSelectedEnvironment] = useState("");
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const [selectedModuleName, setSelectedModuleName] = useState<string>("");
+  const [selectedModuleIsParent, setSelectedModuleIsParent] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   /* ================= FETCH PROJECT ================= */
   const fetchProject = async () => {
     if (!projectId) return;
 
-    const res = await authFetch(
-      `http://localhost:8000/api/projects/${projectId}`
-    );
+    try {
+      const res = await authFetch(
+        `http://localhost:8000/api/projects/${projectId}`
+      );
 
-    if (res.ok) {
-      const data = await res.json();
-      setProjectName(data.title);
+      if (res.ok) {
+        const data = await res.json();
+        setProjectName(data.title);
+      } else if (res.status === 401 || res.status === 403) {
+        setError("You don't have access to this project");
+      }
+    } catch (err) {
+      setError("Failed to fetch project");
     }
   };
 
@@ -37,18 +45,24 @@ export default function ProjectDetailPage() {
   const fetchEnvironments = async () => {
     if (!projectId) return;
 
-    const res = await authFetch(
-      `http://localhost:8000/api/environments?projectId=${projectId}`
-    );
+    try {
+      const res = await authFetch(
+        `http://localhost:8000/api/environments?projectId=${projectId}`
+      );
 
-    if (res.ok) {
-      const data = await res.json();
-      setEnvironments(data);
+      if (res.ok) {
+        const data = await res.json();
+        setEnvironments(data);
 
-      // Auto select first env if none selected
-      if (data.length > 0 && !selectedEnvironment) {
-        setSelectedEnvironment(data[0]._id);
+        // Auto select first env if none selected
+        if (data.length > 0 && !selectedEnvironment) {
+          setSelectedEnvironment(data[0]._id);
+        }
       }
+    } catch (err) {
+      console.error("Failed to fetch environments:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -56,6 +70,20 @@ export default function ProjectDetailPage() {
     fetchProject();
     fetchEnvironments();
   }, [projectId]);
+
+  if (error) {
+    return (
+      <div className="bg-white p-8 rounded-2xl shadow text-center">
+        <p className="text-red-600">{error}</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -65,11 +93,11 @@ export default function ProjectDetailPage() {
           onClick={() => navigate(-1)}
           className="p-2 rounded-full hover:bg-gray-100 transition"
         >
-          ←
+          <ArrowLeftIcon />
         </button>
 
         <h1 className="text-2xl font-bold flex-1 text-center">
-          {projectName}
+          {loading ? "Loading..." : projectName}
         </h1>
 
         <PermissionGuard requiredPermission={PERMISSIONS.ASSIGN_USER}>
@@ -86,32 +114,29 @@ export default function ProjectDetailPage() {
       <div className="grid grid-cols-4 gap-6">
         {/* LEFT SIDE */}
         <div className="col-span-1 space-y-6">
-          {/* 🔥 NEW ENVIRONMENT SELECT (REPLACED OLD SELECT) */}
           <EnvironmentSelect
             environments={environments}
             selectedEnvironment={selectedEnvironment}
             setSelectedEnvironment={(id) => {
               setSelectedEnvironment(id);
-              
             }}
             refresh={fetchEnvironments}
             projectId={projectId!}
-            
           />
 
-          {/* MODULE LIST */}
           {selectedEnvironment ? (
             <ModulePage
               projectId={projectId!}
               environmentId={selectedEnvironment}
-              onSelectModule={(moduleId: string, moduleName: string) => {
+              onSelectModule={(moduleId: string, moduleName: string, isParent: boolean) => {
                 setSelectedModule(moduleId);
                 setSelectedModuleName(moduleName);
+                setSelectedModuleIsParent(isParent);
               }}
             />
           ) : (
             <div className="bg-white rounded-xl shadow border p-6 text-center text-gray-500 text-sm">
-              Select an environment first
+              {loading ? "Loading..." : "Select an environment first"}
             </div>
           )}
         </div>
@@ -124,10 +149,11 @@ export default function ProjectDetailPage() {
               environmentId={selectedEnvironment}
               moduleId={selectedModule}
               moduleName={selectedModuleName}
+              isParent={selectedModuleIsParent}
             />
           ) : (
             <div className="bg-white rounded-xl shadow border p-10 text-center text-gray-500">
-              Select a module to view configurations
+              {loading ? "Loading..." : "Select a module to view configurations"}
             </div>
           )}
         </div>

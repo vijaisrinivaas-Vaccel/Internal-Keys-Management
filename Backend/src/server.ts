@@ -11,6 +11,7 @@ import configRoutes from "./routes/configEntry.routes";
 import userRoutes from "./routes/user.routes";
 import templateRoutes from "./routes/template.routes"
 import projectPermissionRoutes from "./routes/projectPermission.routes";
+import configTemplateRoutes from "./routes/configTemplate.routes";
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ app.use("/api/modules", moduleRoutes);
 app.use("/api/config", configRoutes);
 app.use("/api/templates", templateRoutes)
 app.use("/api/projectPermission", projectPermissionRoutes);
+app.use("/api/config-templates", configTemplateRoutes);
 
 // Root Route
 app.get("/", (req, res) => {

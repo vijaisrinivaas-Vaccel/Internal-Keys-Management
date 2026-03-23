@@ -1,6 +1,7 @@
+// Components/admin/PermissionGuard.tsx
 import type { ReactNode } from "react";
 import { hasPermission } from "../../lib/permissions";
-import type { Permission } from "../../userModel/User"
+import type { Permission } from "../../userModel/User";
 
 interface PermissionGuardProps {
   children: ReactNode;
@@ -20,7 +21,12 @@ export default function PermissionGuard({
   fallback = null,
   allowedRoles
 }: PermissionGuardProps) {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+  // Handle case when user is not logged in
+  if (!user) {
+    return <>{fallback}</>;
+  }
 
   // Backward compatibility: if allowedRoles is provided, use the old system
   if (allowedRoles) {
@@ -43,9 +49,5 @@ export default function PermissionGuard({
       : requiredPermissions.some(p => hasPermission(user, p));
   }
 
-  if (!hasAccess) {
-    return <>{fallback}</>;
-  }
-
-  return <>{children}</>;
+  return hasAccess ? <>{children}</> : <>{fallback}</>;
 }

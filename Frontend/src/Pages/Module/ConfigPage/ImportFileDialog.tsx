@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { X, Upload, FileText, AlertCircle } from "lucide-react";
 import { authFetch } from "../../../lib/auth";
+import ImportOptionsDialog from "./ImportConfirmDialog";
 
 interface ImportFileDialogProps {
   open: boolean;
@@ -23,6 +24,8 @@ export default function ImportFileDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingFileContent, setPendingFileContent] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -52,6 +55,16 @@ export default function ImportFileDialog({
     return parseEnvToEntries(content).length;
   };
 
+  // Get current file name from content (first line)
+  const getCurrentFileName = () => {
+    if (!envContent.trim()) return null;
+    const firstLine = envContent.split("\n")[0]?.trim();
+    if (firstLine?.startsWith("# File:")) {
+      return firstLine.replace("# File:", "").trim();
+    }
+    return null;
+  };
+
   /* ================= HANDLE FILE IMPORT ================= */
   const handleFileImport = () => {
     fileRef.current?.click();
@@ -64,30 +77,46 @@ export default function ImportFileDialog({
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result as string;
+      
+      // Add file name as comment at the top
+      const contentWithFileName = `# File: ${file.name}\n${content}`;
 
-      // Ask user if they want to replace or append
+      // If there's existing content, show confirmation dialog
       if (envContent.trim()) {
-        const shouldReplace = window.confirm(
-          "Do you want to replace the current content?\n\n" +
-          "• Click OK to replace with new file\n" +
-          "• Click Cancel to append to existing content"
-        );
-
-        if (shouldReplace) {
-          setEnvContent(content);
-        } else {
-          setEnvContent(prev => prev + "\n" + content);
-        }
+        setPendingFileContent(contentWithFileName);
+        setShowConfirmDialog(true);
       } else {
-        setEnvContent(content);
+        setEnvContent(contentWithFileName);
+        setError("");
       }
-
-      setError("");
     };
     reader.readAsText(file);
 
     // Reset file input so same file can be selected again
     e.target.value = '';
+  };
+
+  const handleConfirmReplace = () => {
+    if (pendingFileContent) {
+      setEnvContent(pendingFileContent);
+      setPendingFileContent(null);
+      setShowConfirmDialog(false);
+      setError("");
+    }
+  };
+
+  const handleConfirmAppend = () => {
+    if (pendingFileContent) {
+      setEnvContent(prev => prev + "\n\n" + pendingFileContent);
+      setPendingFileContent(null);
+      setShowConfirmDialog(false);
+      setError("");
+    }
+  };
+
+  const handleCancelImport = () => {
+    setPendingFileContent(null);
+    setShowConfirmDialog(false);
   };
 
   /* ================= PARSE AND VALIDATE ENV CONTENT ================= */
@@ -178,8 +207,6 @@ export default function ImportFileDialog({
     }
   };
 
-  // Helper to parse env content to entries
-
   // Find duplicate keys
   const findDuplicateKeys = (content: string) => {
     const lines = content.split("\n");
@@ -239,228 +266,245 @@ export default function ImportFileDialog({
     return invalidLines;
   };
 
+  const currentFileName = getCurrentFileName();
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4">
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Upload size={20} className="text-blue-600" />
-            Import Environment Variables
-          </h2>
-          <button
-            onClick={() => onOpenChange(false)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          {/* Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
-            <AlertCircle size={16} className="text-blue-600 mt-0.5" />
-            <p className="text-sm text-blue-700">
-              Enter your environment variables in KEY=value format (one per line).
-              Lines starting with # are ignored as comments.
-            </p>
-          </div>
-
-          {/* File Input (hidden) */}
-          <input
-            type="file"
-            accept=".env,.txt"
-            ref={fileRef}
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-
-          {/* Buttons */}
-          <div className="flex gap-2">
+    <>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl mx-4">
+          {/* Header */}
+          <div className="flex justify-between items-center p-6 border-b">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Upload size={20} className="text-blue-600" />
+              Import Environment Variables
+            </h2>
             <button
-              onClick={handleFileImport}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+              onClick={() => onOpenChange(false)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition"
             >
-              <FileText size={16} />
-              Import from .env file
+              <X size={18} />
             </button>
           </div>
 
-          {/* Textarea */}
-          <textarea
-            value={envContent}
-            onChange={(e) => {
-              setEnvContent(e.target.value);
-              setError("");
-            }}
-            placeholder={`# Example:
+          {/* Content */}
+          <div className="p-6 space-y-4">
+            {/* Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertCircle size={16} className="text-blue-600 mt-0.5" />
+              <p className="text-sm text-blue-700">
+                Enter your environment variables in KEY=value format (one per line).
+                Lines starting with # are ignored as comments.
+              </p>
+            </div>
+
+            {/* File Input (hidden) */}
+            <input
+              type="file"
+              accept=".env,.txt"
+              ref={fileRef}
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleFileImport}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+              >
+                <FileText size={16} />
+                Import from .env file
+              </button>
+              {currentFileName && (
+                <span className="text-sm text-gray-500 flex items-center">
+                  Current file: {currentFileName}
+                </span>
+              )}
+            </div>
+
+            {/* Textarea */}
+            <textarea
+              value={envContent}
+              onChange={(e) => {
+                setEnvContent(e.target.value);
+                setError("");
+              }}
+              placeholder={`# Example:
 DATABASE_URL=postgresql://localhost:5432/mydb
 API_KEY=sk_test_123456789
 SECRET_KEY=my-super-secret-key
 PORT=3000`}
-            className="w-full h-64 border rounded-lg p-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+              className="w-full h-96 border rounded-lg p-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
 
-          {/* Error/Success Messages */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg text-sm">
-              {success}
-            </div>
-          )}
-
-          {/* Badge Preview */}
-          {envContent.trim() && !error && (
-            <div className="bg-gray-50 border rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-gray-500">Preview & Validation:</p>
-                {/* Color Legend */}
-                <div className="flex flex-wrap gap-3 text-xs">
-                  <div className="flex items-center gap-1">
-                    <span className="text-green-500">✓</span>
-                    <span className="text-gray-600">Valid</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-orange-500">⚠️</span>
-                    <span className="text-gray-600">Duplicate</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-red-500">✗</span>
-                    <span className="text-gray-600">Invalid</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-green-600">#</span>
-                    <span className="text-gray-600">Comment</span>
-                  </div>
-                </div>
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                  {countEntries(envContent)} entries
-                </span>
+            {/* Error/Success Messages */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+                {error}
               </div>
+            )}
 
-              {/* Validation Summary */}
-              {(() => {
-                const duplicateKeys = findDuplicateKeys(envContent);
-                const invalidLines = findInvalidLines(envContent);
+            {success && (
+              <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg text-sm">
+                {success}
+              </div>
+            )}
 
-                if (duplicateKeys.length > 0 || invalidLines.length > 0) {
-                  return (
-                    <div className="mb-3 space-y-1">
-                      {duplicateKeys.length > 0 && (
-                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-                          ⚠️ Duplicate keys found: {duplicateKeys.join(', ')}
-                        </div>
-                      )}
-                      {invalidLines.length > 0 && (
-                        <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded-lg">
-                          ⚠️ {invalidLines.length} invalid line(s) detected
-                        </div>
-                      )}
+            {/* Badge Preview */}
+            {envContent.trim() && !error && (
+              <div className="bg-gray-50 border rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-gray-500">Preview & Validation:</p>
+                  {/* Color Legend */}
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    <div className="flex items-center gap-1">
+                      <span className="text-green-500">✓</span>
+                      <span className="text-gray-600">Valid</span>
                     </div>
-                  );
-                }
-                return null;
-              })()}
+                    <div className="flex items-center gap-1">
+                      <span className="text-orange-500">⚠️</span>
+                      <span className="text-gray-600">Duplicate</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-red-500">✗</span>
+                      <span className="text-gray-600">Invalid</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-green-600">#</span>
+                      <span className="text-gray-600">Comment</span>
+                    </div>
+                  </div>
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                    {countEntries(envContent)} entries
+                  </span>
+                </div>
 
-              {/* Scrollable Preview Area */}
-              <div className="max-h-40 overflow-y-auto font-mono text-xs space-y-1 border rounded-lg p-2 bg-white">
-                {envContent.split("\n").map((line, idx) => {
-                  const trimmed = line.trim();
-                  if (trimmed === "") {
+                {/* Validation Summary */}
+                {(() => {
+                  const duplicateKeys = findDuplicateKeys(envContent);
+                  const invalidLines = findInvalidLines(envContent);
+
+                  if (duplicateKeys.length > 0 || invalidLines.length > 0) {
                     return (
-                      <div key={idx} className="flex items-center gap-2 text-gray-400 italic">
-                        <span>⎯</span>
-                        <span>empty line</span>
+                      <div className="mb-3 space-y-1">
+                        {duplicateKeys.length > 0 && (
+                          <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">
+                            ⚠️ Duplicate keys found: {duplicateKeys.join(', ')}
+                          </div>
+                        )}
+                        {invalidLines.length > 0 && (
+                          <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded-lg">
+                            ⚠️ {invalidLines.length} invalid line(s) detected
+                          </div>
+                        )}
                       </div>
                     );
                   }
+                  return null;
+                })()}
 
-                  const isComment = trimmed.startsWith("#");
-                  const isValid = isComment || trimmed.includes("=");
-                  const [key] = trimmed.split("=");
-                  const cleanKey = key?.trim() || "";
+                {/* Scrollable Preview Area */}
+                <div className="max-h-60 overflow-y-auto font-mono text-xs space-y-1 border rounded-lg p-2 bg-white">
+                  {envContent.split("\n").map((line, idx) => {
+                    const trimmed = line.trim();
+                    if (trimmed === "") {
+                      return (
+                        <div key={idx} className="flex items-center gap-2 text-gray-400 italic">
+                          <span>⎯</span>
+                          <span>empty line</span>
+                        </div>
+                      );
+                    }
 
-                  // Check for duplicate keys (only if not a comment)
-                  const isDuplicate = !isComment && cleanKey && isKeyDuplicate(envContent, cleanKey, idx);
+                    const isComment = trimmed.startsWith("#");
+                    const isValid = isComment || trimmed.includes("=");
+                    const [key] = trimmed.split("=");
+                    const cleanKey = key?.trim() || "";
 
-                  // Determine line color
-                  let lineColor = "text-gray-700";
-                  let bgColor = "";
-                  let icon = null;
+                    // Check for duplicate keys (only if not a comment)
+                    const isDuplicate = !isComment && cleanKey && isKeyDuplicate(envContent, cleanKey, idx);
 
-                  if (isComment) {
-                    lineColor = "text-green-600";
-                    icon = <span className="text-green-500">#</span>;
-                  } else if (!isValid) {
-                    lineColor = "text-red-600";
-                    bgColor = "bg-red-50";
-                    icon = <span className="text-red-500">✗</span>;
-                  } else if (isDuplicate) {
-                    lineColor = "text-orange-600";
-                    bgColor = "bg-orange-50";
-                    icon = <span className="text-orange-500">⚠️</span>;
-                  } else {
-                    icon = <span className="text-green-500">✓</span>;
-                  }
+                    // Determine line color
+                    let lineColor = "text-gray-700";
+                    let bgColor = "";
+                    let icon = null;
 
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex items-start gap-2 p-1 rounded ${bgColor}`}
-                    >
-                      <span className="shrink-0 mt-0.5">{icon}</span>
-                      <div className="flex-1 truncate">
-                        {isComment ? (
-                          <span className="text-green-600">{line}</span>
-                        ) : (
-                          <>
-                            <span className={isDuplicate ? "text-orange-600 font-medium" : "text-blue-600 font-medium"}>
-                              {cleanKey}
-                            </span>
-                            {line.includes("=") && (
-                              <>
-                                <span className="text-gray-400">=</span>
-                                <span className="text-gray-600">
-                                  {line.substring(line.indexOf("=") + 1)}
-                                </span>
-                              </>
-                            )}
-                          </>
-                        )}
+                    if (isComment) {
+                      lineColor = "text-green-600";
+                      icon = <span className="text-green-500">#</span>;
+                    } else if (!isValid) {
+                      lineColor = "text-red-600";
+                      bgColor = "bg-red-50";
+                      icon = <span className="text-red-500">✗</span>;
+                    } else if (isDuplicate) {
+                      lineColor = "text-orange-600";
+                      bgColor = "bg-orange-50";
+                      icon = <span className="text-orange-500">⚠️</span>;
+                    } else {
+                      icon = <span className="text-green-500">✓</span>;
+                    }
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-start gap-2 p-1 rounded ${bgColor}`}
+                      >
+                        <span className="shrink-0 mt-0.5">{icon}</span>
+                        <div className="flex-1 truncate">
+                          {isComment ? (
+                            <span className="text-green-600">{line}</span>
+                          ) : (
+                            <>
+                              <span className={isDuplicate ? "text-orange-600 font-medium" : "text-blue-600 font-medium"}>
+                                {cleanKey}
+                              </span>
+                              {line.includes("=") && (
+                                <>
+                                  <span className="text-gray-400">=</span>
+                                  <span className="text-gray-600">
+                                    {line.substring(line.indexOf("=") + 1)}
+                                  </span>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
+            )}
+          </div>
 
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
-          <button
-            onClick={() => onOpenChange(false)}
-            className="px-4 py-2 border rounded-lg hover:bg-gray-100 transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleImport}
-            disabled={loading || !envContent.trim()}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Upload size={16} />
-            {loading ? "Importing..." : "Import"}
-          </button>
+          {/* Footer */}
+          <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
+            <button
+              onClick={() => onOpenChange(false)}
+              className="px-4 py-2 border rounded-lg hover:bg-gray-100 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleImport}
+              disabled={loading || !envContent.trim()}
+              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Upload size={16} />
+              {loading ? "Importing..." : "Import"}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Import Confirmation Dialog */}
+      <ImportOptionsDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        onReplace={handleConfirmReplace}
+        onAppend={handleConfirmAppend}
+        onCancel={handleCancelImport}
+      />
+    </>
   );
 }

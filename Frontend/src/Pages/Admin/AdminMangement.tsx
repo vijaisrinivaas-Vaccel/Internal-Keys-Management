@@ -2,17 +2,19 @@ import { useState } from "react";
 import { 
   FileText, 
   Settings, 
-  Shield, 
+  Shield,
+  Key 
 } from "lucide-react";
 import TemplateManagementTab from "../../Components/admin/TemplateManagementTab";
 import SystemSettingsTab from "../../Components/admin/SystemManagementTab";
+import ConfigTemplateTab from "../../Components/admin/ConfigTemplateTab";
 
 export default function AdminManagement() {
-  const [activeTab, setActiveTab] = useState< "templates" | "settings">("templates");
+  const [activeTab, setActiveTab] = useState<"templates" | "configs" | "settings">("templates");
 
   const tabs = [
-
     { id: "templates", label: "Project Templates", icon: FileText },
+    { id: "configs", label: "Config Templates", icon: Key },
     { id: "settings", label: "System Settings", icon: Settings },
   ];
 
@@ -25,7 +27,7 @@ export default function AdminManagement() {
           Admin Management
         </h1>
         <p className="text-gray-600 mt-2">
-          Project templates, and system configurations
+          Project templates, configuration templates, and system configurations
         </p>
       </div>
 
@@ -54,6 +56,7 @@ export default function AdminManagement() {
         {/* Tab Content */}
         <div className="p-6">
           {activeTab === "templates" && <TemplateManagementTab />}
+          {activeTab === "configs" && <ConfigTemplateTab />}
           {activeTab === "settings" && <SystemSettingsTab />}
         </div>
       </div>

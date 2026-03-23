@@ -1,8 +1,17 @@
+// lib/permissions.ts
 import { PERMISSIONS, type Permission } from "../userModel/User";
 
 /* ================= ROLE TYPE ================= */
 
 export type Role = "superadmin" | "admin" | "user";
+
+/* ================= USER INTERFACE ================= */
+
+export interface User {
+  role: Role;
+  permissions?: Permission[];
+  [key: string]: any; // Allow other properties
+}
 
 /* ================= ROLE PERMISSIONS ================= */
 
@@ -49,10 +58,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 /* ================= PERMISSION CHECK ================= */
 
 export const hasPermission = (
-  user: { role: Role; permissions?: Permission[] },
+  user: User | null,
   requiredPermission: Permission
 ): boolean => {
-
   if (!user) return false;
 
   // Superadmin always has access
@@ -68,28 +76,26 @@ export const hasPermission = (
 /* ================= MULTIPLE PERMISSIONS ================= */
 
 export const hasAnyPermission = (
-  user: { role: Role; permissions?: Permission[] },
+  user: User | null,
   requiredPermissions: Permission[]
 ): boolean => {
-  return requiredPermissions.some((perm) =>
-    hasPermission(user, perm)
-  );
+  if (!user) return false;
+  return requiredPermissions.some((perm) => hasPermission(user, perm));
 };
 
 export const hasAllPermissions = (
-  user: { role: Role; permissions?: Permission[] },
+  user: User | null,
   requiredPermissions: Permission[]
 ): boolean => {
-  return requiredPermissions.every((perm) =>
-    hasPermission(user, perm)
-  );
+  if (!user) return false;
+  return requiredPermissions.every((perm) => hasPermission(user, perm));
 };
 
 /* ================= HELPERS ================= */
 
 // Used for superadmin-only actions like delete
-export const canDelete = (user: { role: Role }) => {
-  return user.role === "superadmin";
+export const canDelete = (user: { role: Role } | null): boolean => {
+  return user?.role === "superadmin";
 };
 
 /* ================= LEGACY ROLE SYSTEM ================= */
@@ -99,3 +105,6 @@ export const permissions = {
   forAdmins: ["admin", "superadmin"] as Role[],
   forUsers: ["user", "admin", "superadmin"] as Role[],
 };
+
+// Re-export PERMISSIONS for convenience
+export { PERMISSIONS };

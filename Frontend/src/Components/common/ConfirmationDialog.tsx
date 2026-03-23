@@ -3,6 +3,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
   DialogClose,
 } from "../ui/Dialog";
@@ -49,13 +50,11 @@ export default function ConfirmationDialog({
           <DialogTitle className="text-lg font-semibold text-gray-800">
             {title}
           </DialogTitle>
+          <DialogDescription className="text-sm text-gray-600 mt-2 leading-relaxed">
+            {message}
+          </DialogDescription>
         </DialogHeader>
-
-        {/* Message */}
-        <p className="text-sm text-gray-600 mt-3 leading-relaxed tracking-tight">
-          {message}
-        </p>
-
+    
         <DialogFooter className="mt-6 flex justify-end gap-3">
           {/* Cancel */}
           <DialogClose asChild>

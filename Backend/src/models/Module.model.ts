@@ -9,7 +9,7 @@ interface ModuleDoc extends mongoose.Document {
   description?: string;
   createdBy: mongoose.Types.ObjectId;
   createdByName: string;
-  
+  isParent: boolean;
 }
 
 const moduleSchema = new mongoose.Schema<ModuleDoc>(
@@ -43,6 +43,10 @@ const moduleSchema = new mongoose.Schema<ModuleDoc>(
     createdByName: {
       type: String,
       required: true, 
+    },
+    isParent: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }
