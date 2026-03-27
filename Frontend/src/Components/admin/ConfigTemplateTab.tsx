@@ -33,6 +33,59 @@ interface ConfigEntry {
   isVisible?: boolean;
 }
 
+interface ConfigTemplateFormState {
+  name: string;
+  description: string;
+  configs: ConfigEntry[];
+}
+
+const buildConfigStructureSummary = (configs: ConfigEntry[]) =>
+  `${configs.length} keys: ${configs.map((config) => config.key).join(", ")}`;
+
+const buildConfigTemplateChangeSummary = (
+  before: ConfigTemplate | null,
+  after: ConfigTemplateFormState
+) => {
+  if (!before) {
+    return `Created template with ${buildConfigStructureSummary(after.configs)}.`;
+  }
+
+  const parts: string[] = [];
+
+  if (before.name !== after.name) {
+    parts.push(`Name: "${before.name}" -> "${after.name}"`);
+  }
+  if ((before.description || "") !== (after.description || "")) {
+    parts.push("Description updated");
+  }
+
+  const beforeMap = new Map(before.configs.map((config) => [config.key, config]));
+  const afterMap = new Map(after.configs.map((config) => [config.key, config]));
+
+  const addedKeys = [...afterMap.keys()].filter((key) => !beforeMap.has(key));
+  const removedKeys = [...beforeMap.keys()].filter((key) => !afterMap.has(key));
+  const changedKeys = [...afterMap.keys()].filter((key) => {
+    const oldConfig = beforeMap.get(key);
+    const newConfig = afterMap.get(key);
+    if (!oldConfig || !newConfig) return false;
+
+    return (
+      oldConfig.value !== newConfig.value ||
+      (oldConfig.description || "") !== (newConfig.description || "")
+    );
+  });
+
+  if (addedKeys.length > 0) parts.push(`Added keys: ${addedKeys.join(", ")}`);
+  if (removedKeys.length > 0) parts.push(`Removed keys: ${removedKeys.join(", ")}`);
+  if (changedKeys.length > 0) parts.push(`Updated keys: ${changedKeys.join(", ")}`);
+
+  if (parts.length === 0) {
+    parts.push("No config key changes.");
+  }
+
+  return parts.join(". ");
+};
+
 export default function ConfigTemplateTab() {
   const [templates, setTemplates] = useState<ConfigTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,6 +189,18 @@ export default function ConfigTemplateTab() {
       return;
     }
 
+    const changeSummary = buildConfigTemplateChangeSummary(editingTemplate, formData);
+    const reasonInput = window.prompt(
+      `Please provide a reason to ${editingTemplate ? "update" : "create"} this config template.\n\nChanges:\n${changeSummary}`
+    );
+    if (reasonInput === null) return;
+
+    const reason = reasonInput.trim();
+    if (!reason) {
+      alert("Reason is required.");
+      return;
+    }
+
     try {
       const url = editingTemplate
         ? `http://localhost:8000/api/config-templates/${editingTemplate._id}`
@@ -151,7 +216,9 @@ export default function ConfigTemplateTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          configs: configsToSend
+          configs: configsToSend,
+          reason,
+          changeSummary
         })
       });
 
@@ -172,11 +239,31 @@ export default function ConfigTemplateTab() {
 
   // Delete template
   const deleteTemplate = async (id: string) => {
+    const templateToDelete = templates.find((template) => template._id === id);
+    if (!templateToDelete) {
+      alert("Template not found");
+      return;
+    }
+
+    const changeSummary = `Deleting template "${templateToDelete.name}" with ${buildConfigStructureSummary(templateToDelete.configs)}.`;
+    const reasonInput = window.prompt(
+      `Please provide a reason to delete this config template.\n\nChanges:\n${changeSummary}`
+    );
+    if (reasonInput === null) return;
+
+    const reason = reasonInput.trim();
+    if (!reason) {
+      alert("Reason is required.");
+      return;
+    }
+
     if (!confirm("Are you sure you want to delete this template?")) return;
 
     try {
       const res = await authFetch(`http://localhost:8000/api/config-templates/${id}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, changeSummary })
       });
 
       if (res.ok) {
@@ -203,11 +290,23 @@ export default function ConfigTemplateTab() {
       }))
     };
 
+    const changeSummary = `Duplicated from "${template.name}" with ${buildConfigStructureSummary(template.configs)}.`;
+    const reasonInput = window.prompt(
+      `Please provide a reason to create this duplicated config template.\n\nChanges:\n${changeSummary}`
+    );
+    if (reasonInput === null) return;
+
+    const reason = reasonInput.trim();
+    if (!reason) {
+      alert("Reason is required.");
+      return;
+    }
+
     try {
       const res = await authFetch("http://localhost:8000/api/config-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newTemplate)
+        body: JSON.stringify({ ...newTemplate, reason, changeSummary })
       });
 
       if (res.ok) {

@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { authFetch } from "../../../lib/auth";
 import RoleGuard from "../../../Components/RoleGuard";
-import Button from "../../../Components/ui/Button";
 import AlertDialog from "../../../Components/ui/AlertDialog";
 import UserSelectionPanel from "./UserSelectionPanel";
 import ProjectSummaryPanel from "./ProjectSummaryPanel";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, Users, Building2, Shield, Loader2 } from "lucide-react";
+import { hasPermission, PERMISSIONS } from "../../../lib/permissions";
+import { usePermissions } from "../../../Components/hooks/usePermissions";
 
 interface User {
   _id: string;
@@ -71,14 +72,18 @@ export interface SelectedPermissions {
 export default function AssignProject() {
   const { projectId } = useParams<{ projectId: string }>();
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const { hasPermission: hasProjectPermission, loading: projectPermissionLoading } = usePermissions(projectId || "");
+  const canAccessAssignPage =
+    hasPermission(currentUser, PERMISSIONS.VIEW_MANAGEASSIGNING) &&
+    hasProjectPermission(PERMISSIONS.MANAGE_USERS) &&
+    hasProjectPermission(PERMISSIONS.ASSIGN_USER);
+  const canAssignAdmins = hasPermission(currentUser, PERMISSIONS.ASSIGN_ADMIN);
 
   const [project, setProject] = useState<Project | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
-  
-  // Permission states for each user
   const [userPermissions, setUserPermissions] = useState<Record<string, SelectedPermissions>>({});
   
   const [loading, setLoading] = useState(false);
@@ -106,11 +111,11 @@ export default function AssignProject() {
       const res = await authFetch("http://localhost:8000/api/users");
       if (res.ok) {
         const data = await res.json();
-        let filteredUsers = data.filter((user: User) => user.isActive);
+        let filteredUsers = data.filter(
+          (user: User) => user.isActive && user.role !== "superadmin"
+        );
 
-        if (currentUser.role === "superadmin") {
-          filteredUsers = filteredUsers.filter((user: User) => user.role !== "superadmin");
-        } else if (currentUser.role === "admin") {
+        if (!canAssignAdmins) {
           filteredUsers = filteredUsers.filter((user: User) => user.role === "user");
         }
 
@@ -128,7 +133,6 @@ export default function AssignProject() {
       if (res.ok) {
         const data = await res.json();
         
-        // Fetch modules for each environment
         const envsWithModules = await Promise.all(
           data.map(async (env: any) => {
             const modulesRes = await authFetch(
@@ -136,7 +140,6 @@ export default function AssignProject() {
             );
             const modules = modulesRes.ok ? await modulesRes.json() : [];
             
-            // Fetch configs for each module
             const modulesWithConfigs = await Promise.all(
               modules.map(async (mod: any) => {
                 const configsRes = await authFetch(
@@ -173,7 +176,6 @@ export default function AssignProject() {
         ? prev.filter((id) => id !== userId)
         : [...prev, userId];
       
-      // Initialize permissions for newly selected users
       if (!prev.includes(userId)) {
         initializeUserPermissions(userId);
       }
@@ -240,18 +242,15 @@ export default function AssignProject() {
       if (res.ok) {
         const data = await res.json();
         
-        // If there are assigned users, pre-select them and load their permissions
         if (data.assignedUsers && data.assignedUsers.length > 0) {
           const assignedUserIds = data.assignedUsers.map((u: any) => u._id);
           setSelectedUsers(assignedUserIds);
           
-          // Convert the permissions data to your SelectedPermissions format
           const existingPermissions: Record<string, SelectedPermissions> = {};
           
           data.assignedUsers.forEach((user: any) => {
             const userPerms: SelectedPermissions = { environments: {} };
             
-            // First, initialize all fetched environments with false/empty
             fetchedEnvs.forEach(env => {
               userPerms.environments[env._id] = {
                 selected: false,
@@ -290,7 +289,6 @@ export default function AssignProject() {
               });
             });
             
-            // Overwrite with actual assigned permissions
             user.environments.forEach((env: any) => {
               if (userPerms.environments[env.environmentId]) {
                 userPerms.environments[env.environmentId].selected = true;
@@ -373,7 +371,6 @@ export default function AssignProject() {
     setSuccessMessage("");
 
     try {
-      // Prepare permission data for each selected user
       const assignments = selectedUsers.map(userId => ({
         userId,
         environments: Object.entries(userPermissions[userId]?.environments || {})
@@ -405,9 +402,7 @@ export default function AssignProject() {
 
       const res = await authFetch(`http://localhost:8000/api/projectPermission/projects/${projectId}/bulk-assign`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assignments }),
       });
 
@@ -427,80 +422,130 @@ export default function AssignProject() {
     }
   };
 
-  if (!["admin", "superadmin"].includes(currentUser.role)) {
+  if (projectPermissionLoading) {
     return (
-      <div className="bg-white rounded-xl shadow p-6 max-w-2xl mx-auto mt-6">
-        <div className="text-center py-8">
-          <p className="text-red-600 font-semibold">
-            Access Denied: Only Admins and Superadmins can assign projects
-          </p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!canAccessAssignPage) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Shield size={32} className="text-red-600" />
+          </div>
+          <p className="text-red-600 font-semibold text-lg">Access Denied</p>
+          <p className="text-gray-500 mt-2">You do not have permission to assign project access</p>
         </div>
       </div>
     );
   }
 
   return (
-    <RoleGuard allowedRoles={["admin", "superadmin"]}>
-      <div className="flex justify-between items-center bg-white p-8 rounded-2xl mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 rounded-full hover:bg-gray-100 transition text-4xl"
-        >
-          <ArrowLeftIcon />
-        </button>
-        <h1 className="text-2xl font-bold">Assign Project Permissions</h1>
-        <div></div>
-      </div>
+    <RoleGuard
+      requiredPermissions={[
+        PERMISSIONS.VIEW_MANAGEASSIGNING,
+        PERMISSIONS.MANAGE_USERS,
+        PERMISSIONS.ASSIGN_USER
+      ]}
+      requireAll
+    >
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
+        <div className="space-y-6 p-6">
+          
+          {/* Header Section */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg overflow-hidden">
+            <div className="relative px-8 py-6">
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                <div className="absolute bottom-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl translate-y-1/2 -translate-x-1/3"></div>
+              </div>
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => navigate(-1)}
+                    className="p-2 bg-white/20 rounded-xl hover:bg-white/30 transition backdrop-blur-sm"
+                  >
+                    <ArrowLeftIcon size={20} className="text-white" />
+                  </button>
+                  <div>
+                    <h1 className="text-2xl font-bold text-white">Assign Project Permissions</h1>
+                    <p className="text-blue-100 mt-1">Configure access permissions for selected users</p>
+                  </div>
+                </div>
+                <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                  <Building2 size={24} className="text-white" />
+                </div>
+              </div>
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-        {/* Left Panel - User Selection */}
-        <div className="lg:col-span-7">
-          <UserSelectionPanel
-            users={users}
-            environments={environments}
-            selectedUsers={selectedUsers}
-            expandedUsers={expandedUsers}
-            userPermissions={userPermissions}
-            onToggleUserSelection={toggleUserSelection}
-            onToggleUserExpand={toggleUserExpand}
-            onUpdateUserPermissions={updateUserPermissions}
-          />
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+            <div className="lg:col-span-7">
+              <UserSelectionPanel
+                users={users}
+                environments={environments}
+                selectedUsers={selectedUsers}
+                expandedUsers={expandedUsers}
+                userPermissions={userPermissions}
+                onToggleUserSelection={toggleUserSelection}
+                onToggleUserExpand={toggleUserExpand}
+                onUpdateUserPermissions={updateUserPermissions}
+                currentUserRole={currentUser.role}
+                canAssignUsers={canAccessAssignPage}
+                canAssignAdmins={canAssignAdmins}
+              />
+            </div>
+            <div className="lg:col-span-3">
+              <ProjectSummaryPanel
+                project={project}
+                users={users}
+                environments={environments}
+                selectedUsers={selectedUsers}
+                userPermissions={userPermissions}
+                expandedUsers={expandedUsers}
+                onToggleUserExpand={toggleUserExpand}
+                successMessage={successMessage}
+                errorMessage={errorMessage}
+              />
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowConfirm(true)}
+              disabled={loading || selectedUsers.length === 0}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                <>
+                  <Users size={18} />
+                  Assign Permissions
+                </>
+              )}
+            </button>
+          </div>
+
+          {showConfirm && (
+            <AlertDialog
+              title="Confirm Assignment"
+              message={`Are you sure you want to assign these permissions to ${selectedUsers.length} user(s)?`}
+              onConfirm={handleAssignPermissions}
+              onCancel={() => setShowConfirm(false)}
+            />
+          )}
         </div>
-
-        {/* Right Panel - Summary */}
-        <div className="lg:col-span-3">
-          <ProjectSummaryPanel
-            project={project}
-            users={users}
-            environments={environments}
-            selectedUsers={selectedUsers}
-            userPermissions={userPermissions}
-            expandedUsers={expandedUsers}
-            onToggleUserExpand={toggleUserExpand}
-            successMessage={successMessage}
-            errorMessage={errorMessage}
-          />
-        </div>
       </div>
-
-      <div className="mt-6 flex justify-end">
-        <Button
-          onClick={() => setShowConfirm(true)}
-          disabled={loading || selectedUsers.length === 0}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg disabled:opacity-50"
-        >
-          {loading ? "Assigning..." : "Assign Permissions"}
-        </Button>
-      </div>
-
-      {showConfirm && (
-        <AlertDialog
-          title="Confirm Assignment"
-          message={`Are you sure you want to assign these permissions to ${selectedUsers.length} user(s)?`}
-          onConfirm={handleAssignPermissions}
-          onCancel={() => setShowConfirm(false)}
-        />
-      )}
     </RoleGuard>
   );
 }

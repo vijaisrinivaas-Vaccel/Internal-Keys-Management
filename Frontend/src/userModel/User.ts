@@ -1,32 +1,68 @@
-// types/user.types.ts
 export interface User {
+  id: string;
   firstname: string;
   lastname: string;
+  username: string;
   employeeId?: string;
   email: string;
-  password: string;
-  role: "user" | "admin" | "superadmin";
-  permissions?: Permission[]; // Add this field for custom permissions
+  role: string; // Derived role name from roleId.name
+  roleId: {
+    _id: string;
+    name: string;
+  } | string;
+  permissions?: string[]; // Permissions from role
+  customPermissions?: string[]; // User-specific overrides
 }
 
-export type Role = "admin" | "superadmin" | "user";
+// ========= PERMISSION SYSTEM =========
 
-// Old permissions (for backward compatibility)
-export const oldPermissions = {
-  forSuperadmin: ["superadmin"],
-  forAdmins: ["admin", "superadmin"],
-  forUsers: ["user", "admin", "superadmin"],
-};
-
-// ========= NEW PERMISSION SYSTEM =========
-
-/* ================= PERMISSIONS ================= */
 export const PERMISSIONS = {
+  // ===== GLOBAL / SYSTEM =====
+  VIEW_DASHBOARD: "VIEW_DASHBOARD",
+  VIEW_ALLPROJECT: "VIEW_ALLPROJECT",
+  VIEW_MANAGEASSIGNING: "VIEW_MANAGEASSIGNING",
+  VIEW_MYASSIGNMENT: "VIEW_MYASSIGNMENT",
+  VIEW_REPORTS: "VIEW_REPORTS",
+  ACCESS_SETTINGS: "ACCESS_SETTINGS",
+  VIEW_AUTH_LOGS: "VIEW_AUTH_LOGS",
+  VIEW_USER_LOGS: "VIEW_USER_LOGS",
+  VIEW_PERMISSION_LOGS: "VIEW_PERMISSION_LOGS",
+  VIEW_ACTIVITY_LOGS: "VIEW_ACTIVITY_LOGS",
+  VIEW_ADMIN_LOGS: "VIEW_ADMIN_LOGS",
+
+  // ===== USER MANAGEMENT =====
+  VIEW_USERS: "VIEW_USERS",
+  CREATE_USER: "CREATE_USER",
+  UPDATE_USER: "UPDATE_USER",
+  DELETE_USER: "DELETE_USER",
+
+  // ===== ROLE MANAGEMENT =====
+  VIEW_ROLES: "VIEW_ROLES",
+  CREATE_ROLE: "CREATE_ROLE",
+  UPDATE_ROLE: "UPDATE_ROLE",
+  DELETE_ROLE: "DELETE_ROLE",
+
   // ===== PROJECT =====
-  CREATE_PROJECT: "CREATE_PROJECT",
+  VIEW_PROJECTS: "VIEW_PROJECTS",
   READ_PROJECT: "READ_PROJECT",
+  CREATE_PROJECT: "CREATE_PROJECT",
   UPDATE_PROJECT: "UPDATE_PROJECT",
   DELETE_PROJECT: "DELETE_PROJECT",
+  ASSIGN_USER: "ASSIGN_USER",
+  ASSIGN_ADMIN: "ASSIGN_ADMIN",
+  MANAGE_USERS: "MANAGE_USERS",
+
+  // ===== ADMIN PANEL TABS =====
+  VIEW_PROJECT_TEMPLATES: "VIEW_PROJECT_TEMPLATES",
+  VIEW_CONFIG_TEMPLATES: "VIEW_CONFIG_TEMPLATES",
+  VIEW_USER_ROLES: "VIEW_USER_ROLES",
+  VIEW_SYSTEM_SETTINGS: "VIEW_SYSTEM_SETTINGS",
+
+  // ===== ENVIRONMENT NAME ACCESS =====
+  ACCESS_DEVELOPMENT: "ACCESS_DEVELOPMENT",
+  ACCESS_STAGING: "ACCESS_STAGING",
+  ACCESS_UAT: "ACCESS_UAT",
+  ACCESS_PRODUCTION: "ACCESS_PRODUCTION",
 
   // ===== ENVIRONMENT =====
   CREATE_ENVIRONMENT: "CREATE_ENVIRONMENT",
@@ -45,13 +81,6 @@ export const PERMISSIONS = {
   READ_CONFIG: "READ_CONFIG",
   UPDATE_CONFIG: "UPDATE_CONFIG",
   DELETE_CONFIG: "DELETE_CONFIG",
-
-  // ===== USER / ASSIGNMENT =====
-  ASSIGN_USER: "ASSIGN_USER",
-  MANAGE_USERS: "MANAGE_USERS",
-
-  // ===== REPORTS =====
-  VIEW_REPORTS: "VIEW_REPORTS",
 } as const;
 
-export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+export type Permission = string;

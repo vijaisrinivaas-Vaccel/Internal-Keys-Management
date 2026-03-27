@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 const ACCESS_TOKEN_KEY = "token";
 
 export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -95,7 +95,6 @@ export const registerRequest = (body: unknown) =>
   });
 
 export const logoutRequest = () =>
-  fetch(`${API_BASE_URL}/auth/logout`, {
+  authFetch(`${API_BASE_URL}/auth/logout`, {
     method: "POST",
-    credentials: "include",
   });

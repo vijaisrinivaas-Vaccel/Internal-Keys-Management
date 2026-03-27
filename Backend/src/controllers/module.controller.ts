@@ -4,6 +4,7 @@ import { ConfigEntry } from "../models/ConfigEntry.model";
 import ProjectUserPermission from "../models/ProjectUserPermission.model";
 import User from "../models/User.model";
 import {Permission , PERMISSIONS} from "../config/accessControl";
+import { logAudit } from "../middlewares/auditLogger";
 
 /* ================= CHECK MODULE PERMISSION ================= */
 const checkModulePermission = async (
@@ -14,8 +15,9 @@ const checkModulePermission = async (
   requiredPermission: Permission 
 ): Promise<boolean> => {
   // Superadmin can do everything
-  const user = await User.findById(userId);
-  if (user?.role === "superadmin") return true;
+  const user = await User.findById(userId).populate("roleId");
+  const roleName = (user?.roleId as any)?.name || "user";
+  if (roleName === "superadmin") return true;
 
   // Check if user has permission for this module
   const permission = await ProjectUserPermission.findOne({
@@ -54,7 +56,7 @@ export const createModule = async (req: Request, res: Response) => {
     }
 
     // Check if user has permission to create module
-    if (user.role !== "superadmin") {
+    if (user.roleName !== "superadmin") {
       const hasPermission = await checkModulePermission(
         user.id,
         projectId,
@@ -87,6 +89,23 @@ export const createModule = async (req: Request, res: Response) => {
       createdByName: user.username,
     });
 
+    logAudit({
+      category: "activity",
+      action: "CREATE_MODULE",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(module._id),
+      details: `Created module "${module.moduleName}"`,
+      metadata: {
+        projectId,
+        environmentId,
+        moduleId: String(module._id),
+        moduleName: module.moduleName,
+        changeSummary: `Created module "${module.moduleName}"`,
+      },
+      req,
+    });
+
     res.status(201).json(module);
   } catch (err) {
     console.error("CREATE MODULE ERROR:", err);
@@ -115,7 +134,7 @@ export const getModules = async (req: Request, res: Response) => {
     }).sort({ createdAt: 1 });
 
     // Superadmin sees all
-    if (user.role === "superadmin") { 
+    if (user.roleName === "superadmin") { 
       return res.json(allModules);
     }
 
@@ -192,8 +211,33 @@ export const updateModule = async (req: Request, res: Response) => {
     const updated = await Module.findByIdAndUpdate(
       id,
       { moduleName },
-      { new: true }
+      { returnDocument: 'after' }
     );
+
+    const previousName = module.moduleName;
+    const nextName = updated?.moduleName || moduleName || previousName;
+    const changeSummary =
+      previousName !== nextName
+        ? `Renamed module from "${previousName}" to "${nextName}"`
+        : `Updated module "${nextName}"`;
+
+    logAudit({
+      category: "activity",
+      action: "UPDATE_MODULE",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(updated?._id || id),
+      details: `Updated module "${nextName}"`,
+      metadata: {
+        projectId: String(module.projectId),
+        environmentId: String(module.environmentId),
+        moduleId: String(updated?._id || id),
+        previousName,
+        nextName,
+        changeSummary,
+      },
+      req,
+    });
 
     res.json(updated);
   } catch (err) {
@@ -249,6 +293,23 @@ export const deleteModule = async (req: Request, res: Response) => {
 
     await Module.findByIdAndDelete(id);
 
+    logAudit({
+      category: "activity",
+      action: "DELETE_MODULE",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(module._id),
+      details: `Deleted module "${module.moduleName}"`,
+      metadata: {
+        projectId: String(module.projectId),
+        environmentId: String(module.environmentId),
+        moduleId: String(module._id),
+        moduleName: module.moduleName,
+        changeSummary: `Deleted module "${module.moduleName}"`,
+      },
+      req,
+    });
+
     res.json({ message: "Module deleted successfully" });
   } catch (err) {
     console.error("DELETE MODULE ERROR:", err);
@@ -275,7 +336,7 @@ export const setParentModule = async (req: Request, res: Response) => {
     }
 
     // Check permission - require update permission to set as parent
-    if (user.role !== "superadmin") {
+    if (user.roleName !== "superadmin") {
       const hasPermission = await checkModulePermission(
         user.id,
         module.projectId.toString(),
@@ -299,8 +360,25 @@ export const setParentModule = async (req: Request, res: Response) => {
     const updated = await Module.findByIdAndUpdate(
       id,
       { isParent: true },
-      { new: true }
+      { returnDocument: 'after' }
     );
+
+    logAudit({
+      category: "activity",
+      action: "UPDATE_MODULE",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(updated?._id || id),
+      details: `Set module "${updated?.moduleName || module.moduleName}" as parent`,
+      metadata: {
+        projectId: String(module.projectId),
+        environmentId: String(module.environmentId),
+        moduleId: String(updated?._id || id),
+        moduleName: updated?.moduleName || module.moduleName,
+        changeSummary: `Set module "${updated?.moduleName || module.moduleName}" as parent module`,
+      },
+      req,
+    });
 
     res.json({ message: "Module set as parent successfully", module: updated });
   } catch (err) {

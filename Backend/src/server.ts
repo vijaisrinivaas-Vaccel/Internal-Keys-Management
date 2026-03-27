@@ -12,6 +12,10 @@ import userRoutes from "./routes/user.routes";
 import templateRoutes from "./routes/template.routes"
 import projectPermissionRoutes from "./routes/projectPermission.routes";
 import configTemplateRoutes from "./routes/configTemplate.routes";
+import roleRoutes from "./routes/role.routes";
+import auditLogRoutes from "./routes/auditLog.routes";
+import dashboardRoutes from "./routes/dashboard.routes";
+import { seedRoles } from "./scripts/seedRoles";
 
 dotenv.config();
 
@@ -42,7 +46,9 @@ app.use(
 );
 app.use(express.json());
 
-connectDB();
+connectDB().then(() => {
+  seedRoles();
+});
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -54,6 +60,9 @@ app.use("/api/config", configRoutes);
 app.use("/api/templates", templateRoutes)
 app.use("/api/projectPermission", projectPermissionRoutes);
 app.use("/api/config-templates", configTemplateRoutes);
+app.use("/api/roles", roleRoutes);
+app.use("/api/audit-logs", auditLogRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // Root Route
 app.get("/", (req, res) => {

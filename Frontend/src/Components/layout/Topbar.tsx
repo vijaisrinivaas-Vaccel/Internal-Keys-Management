@@ -7,7 +7,7 @@ import { useTheme } from "../../context/ThemeContext";
 
 interface UserData {
   username: string;
-  role: "user" | "admin" | "superadmin";
+  role: string;
   firstname?: string;
   lastname?: string;
   email?: string;
@@ -39,6 +39,8 @@ export default function Topbar() {
 
       const data = await res.json();
       setUser(data);
+      // Update localStorage to ensure consistency across components
+      localStorage.setItem("user", JSON.stringify(data));
     };
 
     fetchUser();
@@ -57,7 +59,8 @@ export default function Topbar() {
   };
 
   const getRoleConfig = (role: string) => {
-    switch (role) {
+    const r = role.toLowerCase();
+    switch (r) {
       case "superadmin":
         return {
           icon: Crown,
@@ -76,10 +79,20 @@ export default function Topbar() {
           borderColor: "border-blue-300",
           badgeBg: "bg-gradient-to-r from-blue-500 to-blue-600",
         };
-      default:
+      case "user":
         return {
           icon: User,
           label: "User",
+          bgColor: "bg-orange-100",
+          textColor: "text-orange-700",
+          borderColor: "border-orange-300",
+          badgeBg: "bg-gradient-to-r from-orange-500 to-orange-600",
+        };
+      default:
+        // Dynamic roles (e.g., Support, Developer)
+        return {
+          icon: Shield,
+          label: role.charAt(0).toUpperCase() + role.slice(1).replace(/_/g, " "),
           bgColor: "bg-green-100",
           textColor: "text-green-700",
           borderColor: "border-green-300",

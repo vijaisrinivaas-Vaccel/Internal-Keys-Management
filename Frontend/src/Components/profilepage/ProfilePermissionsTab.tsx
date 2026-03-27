@@ -12,7 +12,8 @@ import {
   Shield,
   Database,
   Settings,
-  Key
+  Key,
+  Info
 } from "lucide-react";
 import { type Permission } from "../../userModel/User";
 import type { ProfileData } from "./ProfilePage";
@@ -164,6 +165,39 @@ export default function ProfilePermissionsTab({
               <Settings size={20} className="text-purple-600" />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Global Permissions Section */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="p-4 bg-gradient-to-r from-blue-50 to-white border-b border-gray-100 flex items-center gap-3">
+          <Shield size={20} className="text-blue-600" />
+          <div>
+            <h3 className="font-semibold text-gray-900">Global Permissions</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Permissions inherited from role: <span className="font-medium text-blue-600">{profile.role}</span></p>
+          </div>
+        </div>
+        <div className="p-4">
+          {profile.permissions && profile.permissions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {profile.permissions.map((perm) => (
+                <span
+                  key={perm}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${getPermissionColor(perm)}`}
+                >
+                  {getPermissionIcon(perm)}
+                  {perm === "*" ? "Full Root Access (*)" : formatPermissionName(perm)}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-gray-500 text-sm italic py-2">
+              <Info size={16} className="text-gray-400" />
+              {profile.role === "superadmin" 
+                ? "Superadmins have full system access by default." 
+                : "No global permissions assigned to this role."}
+            </div>
+          )}
         </div>
       </div>
 

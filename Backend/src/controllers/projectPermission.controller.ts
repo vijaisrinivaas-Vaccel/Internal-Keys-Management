@@ -5,6 +5,144 @@ import User from "../models/User.model";
 import { Environment } from "../models/Environment.model";
 import { Module } from "../models/Module.model";
 import { ConfigEntry } from "../models/ConfigEntry.model";
+import { logAudit } from "../middlewares/auditLogger";
+
+type PermissionTree = Array<{
+  environmentId?: unknown;
+  permissions?: string[];
+  modules?: Array<{
+    moduleId?: unknown;
+    permissions?: string[];
+    accessAll?: boolean;
+    configEntries?: Array<{
+      configId?: unknown;
+      permissions?: string[];
+    }>;
+  }>;
+}>;
+
+interface PermissionStats {
+  environmentCount: number;
+  moduleCount: number;
+  configCount: number;
+  accessAllModuleCount: number;
+  permissions: string[];
+}
+
+const formatPermissionLabel = (permission: string) =>
+  String(permission || "").replace(/_/g, " ").toLowerCase();
+
+const summarizePermissionCodes = (permissions: string[]) =>
+  permissions.length > 0
+    ? permissions.map(formatPermissionLabel).join(", ")
+    : "none";
+
+const summarizeScope = (stats: PermissionStats) =>
+  `${stats.environmentCount} environment(s), ${stats.moduleCount} module(s), ${stats.configCount} config(s), ${stats.accessAllModuleCount} access-all module(s)`;
+
+const getPermissionStats = (environments: PermissionTree = []): PermissionStats => {
+  const permissionSet = new Set<string>();
+  const moduleIds = new Set<string>();
+  const configIds = new Set<string>();
+  let accessAllModuleCount = 0;
+
+  for (const environment of environments || []) {
+    for (const permission of environment?.permissions || []) {
+      permissionSet.add(String(permission));
+    }
+
+    for (const module of environment?.modules || []) {
+      if (module?.moduleId) {
+        moduleIds.add(String(module.moduleId));
+      }
+      if (module?.accessAll) {
+        accessAllModuleCount += 1;
+      }
+
+      for (const permission of module?.permissions || []) {
+        permissionSet.add(String(permission));
+      }
+
+      for (const config of module?.configEntries || []) {
+        if (config?.configId) {
+          configIds.add(String(config.configId));
+        }
+
+        for (const permission of config?.permissions || []) {
+          permissionSet.add(String(permission));
+        }
+      }
+    }
+  }
+
+  return {
+    environmentCount: (environments || []).length,
+    moduleCount: moduleIds.size,
+    configCount: configIds.size,
+    accessAllModuleCount,
+    permissions: Array.from(permissionSet).sort(),
+  };
+};
+
+const buildAssignmentSummary = (environments: PermissionTree = []) => {
+  const stats = getPermissionStats(environments);
+  return {
+    stats,
+    summary: `Granted permissions: ${summarizePermissionCodes(stats.permissions)}. Scope: ${summarizeScope(stats)}`,
+  };
+};
+
+const buildReassignmentSummary = (before: PermissionTree = [], after: PermissionTree = []) => {
+  const beforeStats = getPermissionStats(before);
+  const afterStats = getPermissionStats(after);
+
+  const beforeSet = new Set(beforeStats.permissions);
+  const afterSet = new Set(afterStats.permissions);
+
+  const addedPermissions = afterStats.permissions.filter((permission) => !beforeSet.has(permission));
+  const removedPermissions = beforeStats.permissions.filter((permission) => !afterSet.has(permission));
+
+  const parts: string[] = [];
+
+  if (addedPermissions.length > 0) {
+    parts.push(`Added access: ${summarizePermissionCodes(addedPermissions)}`);
+  }
+
+  if (removedPermissions.length > 0) {
+    parts.push(`Removed access: ${summarizePermissionCodes(removedPermissions)}`);
+  }
+
+  if (parts.length === 0) {
+    parts.push("No permission-code changes");
+  }
+
+  if (
+    beforeStats.environmentCount !== afterStats.environmentCount ||
+    beforeStats.moduleCount !== afterStats.moduleCount ||
+    beforeStats.configCount !== afterStats.configCount ||
+    beforeStats.accessAllModuleCount !== afterStats.accessAllModuleCount
+  ) {
+    parts.push(
+      `Scope changed: ${beforeStats.environmentCount}->${afterStats.environmentCount} environment(s), ${beforeStats.moduleCount}->${afterStats.moduleCount} module(s), ${beforeStats.configCount}->${afterStats.configCount} config(s), ${beforeStats.accessAllModuleCount}->${afterStats.accessAllModuleCount} access-all module(s)`
+    );
+  }
+
+  return {
+    beforeStats,
+    afterStats,
+    addedPermissions,
+    removedPermissions,
+    summary: parts.join(". "),
+  };
+};
+
+const buildRemovalSummary = (environments: PermissionTree = []) => {
+  const stats = getPermissionStats(environments);
+  return {
+    stats,
+    summary: `Removed permissions: ${summarizePermissionCodes(stats.permissions)}. Removed scope: ${summarizeScope(stats)}`,
+  };
+};
 
 export const assignProjectPermissions = async (req: Request, res: Response) => {
   try {
@@ -29,6 +167,9 @@ export const assignProjectPermissions = async (req: Request, res: Response) => {
       const user = await User.findById(userId);
       if (!user) continue;
 
+      const existingPermission = await ProjectUserPermission.findOne({ projectId, userId })
+        .lean();
+
       // Update or create permission document
       const updated = await ProjectUserPermission.findOneAndUpdate(
         { projectId, userId },
@@ -39,10 +180,63 @@ export const assignProjectPermissions = async (req: Request, res: Response) => {
           grantedBy: currentUser.id,
           grantedByName: currentUser.username || currentUser.email,
         },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
 
       results.push(updated);
+
+      const targetUserName =
+        user.username || `${user.firstname || ""} ${user.lastname || ""}`.trim() || user.email || String(user._id);
+
+      if (existingPermission) {
+        const diff = buildReassignmentSummary(
+          (existingPermission.environments || []) as PermissionTree,
+          (environments || []) as PermissionTree
+        );
+
+        logAudit({
+          category: "permission",
+          action: "UPDATE_PERMISSION",
+          userId: String(currentUser.id),
+          userName: currentUser.username || "Unknown",
+          targetId: String(userId),
+          details: `Reassigned permissions for user "${targetUserName}" in project "${project.title}"`,
+          metadata: {
+            projectId,
+            projectTitle: project.title,
+            userId,
+            targetUserName,
+            operation: "reassigned",
+            addedPermissions: diff.addedPermissions,
+            removedPermissions: diff.removedPermissions,
+            beforeStats: diff.beforeStats,
+            afterStats: diff.afterStats,
+            changeSummary: diff.summary,
+          },
+          req,
+        });
+      } else {
+        const assignmentSummary = buildAssignmentSummary((environments || []) as PermissionTree);
+
+        logAudit({
+          category: "permission",
+          action: "ASSIGN_PROJECT",
+          userId: String(currentUser.id),
+          userName: currentUser.username || "Unknown",
+          targetId: String(userId),
+          details: `Assigned user "${targetUserName}" to project "${project.title}"`,
+          metadata: {
+            projectId,
+            projectTitle: project.title,
+            userId,
+            targetUserName,
+            operation: "assigned",
+            assignedStats: assignmentSummary.stats,
+            changeSummary: assignmentSummary.summary,
+          },
+          req,
+        });
+      }
     }
 
     res.json({
@@ -75,9 +269,11 @@ export const updateUserProjectPermissions = async (req: Request, res: Response) 
     }
 
     // Permission check - only admin/superadmin can update permissions
-    if (currentUser.role !== "superadmin" && currentUser.role !== "admin") {
+    if (currentUser.roleName !== "superadmin" && currentUser.roleName !== "admin") {
       return res.status(403).json({ message: "Not authorized" });
     }
+
+    const existingPermission = await ProjectUserPermission.findOne({ projectId, userId }).lean();
 
     // Update or create permissions with hierarchical structure
     const updated = await ProjectUserPermission.findOneAndUpdate(
@@ -89,8 +285,61 @@ export const updateUserProjectPermissions = async (req: Request, res: Response) 
         grantedBy: currentUser.id,
         grantedByName: currentUser.username || currentUser.email,
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
+
+    const targetUserName =
+      user.username || `${user.firstname || ""} ${user.lastname || ""}`.trim() || user.email || String(user._id);
+
+    if (existingPermission) {
+      const diff = buildReassignmentSummary(
+        (existingPermission.environments || []) as PermissionTree,
+        (environments || []) as PermissionTree
+      );
+
+      logAudit({
+        category: "permission",
+        action: "UPDATE_PERMISSION",
+        userId: String(currentUser.id),
+        userName: currentUser.username || "Unknown",
+        targetId: String(userId),
+        details: `Reassigned permissions for user "${targetUserName}" in project "${project.title}"`,
+        metadata: {
+          projectId,
+          projectTitle: project.title,
+          userId,
+          targetUserName,
+          operation: "reassigned",
+          addedPermissions: diff.addedPermissions,
+          removedPermissions: diff.removedPermissions,
+          beforeStats: diff.beforeStats,
+          afterStats: diff.afterStats,
+          changeSummary: diff.summary,
+        },
+        req,
+      });
+    } else {
+      const summary = buildAssignmentSummary((environments || []) as PermissionTree);
+
+      logAudit({
+        category: "permission",
+        action: "ASSIGN_PROJECT",
+        userId: String(currentUser.id),
+        userName: currentUser.username || "Unknown",
+        targetId: String(userId),
+        details: `Assigned user "${targetUserName}" to project "${project.title}"`,
+        metadata: {
+          projectId,
+          projectTitle: project.title,
+          userId,
+          targetUserName,
+          operation: "assigned",
+          assignedStats: summary.stats,
+          changeSummary: summary.summary,
+        },
+        req,
+      });
+    }
 
     res.json({
       message: "Permissions updated successfully",
@@ -137,7 +386,7 @@ export const getAllProjectsWithUserPermissions = async (req: Request, res: Respo
     const currentUser = (req as any).user;
 
     // Permission check
-    if (currentUser.role !== "superadmin" && currentUser.role !== "admin") {
+    if (currentUser.roleName !== "superadmin" && currentUser.roleName !== "admin") {
       return res.status(403).json({ message: "Not authorized" });
     }
 
@@ -175,11 +424,14 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
     const { assignments } = req.body;
     const currentUser = (req as any).user;
 
-    console.log("Current User Role:", currentUser.role);
-
     // Permission check
-    if (currentUser.role !== "superadmin" && currentUser.role !== "admin") {
+    if (currentUser.roleName !== "superadmin" && currentUser.roleName !== "admin") {
       return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const project = await Project.findById(projectId).select("title");
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
     }
 
     const results = [];
@@ -188,6 +440,7 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
 
     for (const assignment of assignments) {
       const { userId, environments } = assignment;
+      const existingPermission = await ProjectUserPermission.findOne({ projectId, userId }).lean();
 
       // Get user details for project assignment
       const user = await User.findById(userId).select("firstname lastname username");
@@ -206,13 +459,68 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
           grantedBy: currentUser.id,
           grantedByName: currentUser.username || currentUser.email,
         },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
 
       results.push({
         userId,
         environments: updated.environments
       });
+
+      const targetUserName =
+        user?.username ||
+        `${user?.firstname || ""} ${user?.lastname || ""}`.trim() ||
+        String(userId);
+
+      if (existingPermission) {
+        const diff = buildReassignmentSummary(
+          (existingPermission.environments || []) as PermissionTree,
+          (environments || []) as PermissionTree
+        );
+
+        logAudit({
+          category: "permission",
+          action: "UPDATE_PERMISSION",
+          userId: String(currentUser.id),
+          userName: currentUser.username || "Unknown",
+          targetId: String(userId),
+          details: `Reassigned permissions for user "${targetUserName}" in project "${project.title}"`,
+          metadata: {
+            projectId,
+            projectTitle: project.title,
+            userId,
+            targetUserName,
+            operation: "reassigned",
+            addedPermissions: diff.addedPermissions,
+            removedPermissions: diff.removedPermissions,
+            beforeStats: diff.beforeStats,
+            afterStats: diff.afterStats,
+            changeSummary: diff.summary,
+          },
+          req,
+        });
+      } else {
+        const summary = buildAssignmentSummary((environments || []) as PermissionTree);
+
+        logAudit({
+          category: "permission",
+          action: "ASSIGN_PROJECT",
+          userId: String(currentUser.id),
+          userName: currentUser.username || "Unknown",
+          targetId: String(userId),
+          details: `Assigned user "${targetUserName}" to project "${project.title}"`,
+          metadata: {
+            projectId,
+            projectTitle: project.title,
+            userId,
+            targetUserName,
+            operation: "assigned",
+            assignedStats: summary.stats,
+            changeSummary: summary.summary,
+          },
+          req,
+        });
+      }
     }
 
     // IMPORTANT: Update the Project's assignedTo field
@@ -223,7 +531,7 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
           assignedTo: assignedUserIds,
           assignedToNames: assignedUserNames,
         },
-        { new: true }
+        { returnDocument: 'after' }
       );
     }
 
@@ -275,8 +583,11 @@ export const getProjectAssignedUsers = async (req: Request, res: Response) => {
     const assignedUsers = await Promise.all(
       project.assignedTo.map(async (userId) => {
         const user = await User.findById(userId)
-          .select("firstname lastname username email role")
+          .select("firstname lastname username email roleId")
+          .populate("roleId")
           .lean();
+
+        const roleName = (user?.roleId as any)?.name || "user";
 
         return {
           _id: userId,
@@ -284,7 +595,7 @@ export const getProjectAssignedUsers = async (req: Request, res: Response) => {
           lastname: user?.lastname,
           username: user?.username,
           email: user?.email,
-          role: user?.role,
+          role: roleName,
           environments: permissionsMap.get(userId.toString()) || []
         };
       })
@@ -308,9 +619,14 @@ export const removeUserProjectPermissions = async (req: Request, res: Response) 
     const currentUser = (req as any).user;
 
     // Permission check
-    if (currentUser.role !== "superadmin" && currentUser.role !== "admin") {
+    if (currentUser.roleName !== "superadmin" && currentUser.roleName !== "admin") {
       return res.status(403).json({ message: "Not authorized" });
     }
+
+    const [project, targetUser] = await Promise.all([
+      Project.findById(projectId).select("title"),
+      User.findById(userId).select("firstname lastname username email"),
+    ]);
 
     const deleted = await ProjectUserPermission.findOneAndDelete({
       projectId,
@@ -320,6 +636,33 @@ export const removeUserProjectPermissions = async (req: Request, res: Response) 
     if (!deleted) {
       return res.status(404).json({ message: "Permissions not found" });
     }
+
+    const removalSummary = buildRemovalSummary((deleted.environments || []) as PermissionTree);
+    const targetUserName =
+      targetUser?.username ||
+      `${targetUser?.firstname || ""} ${targetUser?.lastname || ""}`.trim() ||
+      targetUser?.email ||
+      String(userId);
+
+    // Audit log: REMOVE_PERMISSION
+    logAudit({
+      category: "permission",
+      action: "REMOVE_PERMISSION",
+      userId: String(currentUser.id),
+      userName: currentUser.username || "Unknown",
+      targetId: String(userId),
+      details: `Removed permissions for user "${targetUserName}" from project "${project?.title || projectId}"`,
+      metadata: {
+        projectId,
+        projectTitle: project?.title || null,
+        userId,
+        targetUserName,
+        operation: "removed",
+        removedStats: removalSummary.stats,
+        changeSummary: removalSummary.summary,
+      },
+      req,
+    });
 
     res.json({
       message: "Permissions removed successfully"
@@ -337,7 +680,7 @@ export const getUserDetailedPermissions = async (req: Request, res: Response) =>
     const currentUser = (req as any).user;
 
     // Permission check
-    if (currentUser.role !== "superadmin" && currentUser.role !== "admin" && currentUser.id !== userId) {
+    if (currentUser.roleName !== "superadmin" && currentUser.roleName !== "admin" && currentUser.id !== userId) {
       return res.status(403).json({ message: "Not authorized" });
     }
 

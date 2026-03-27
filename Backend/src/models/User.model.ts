@@ -9,7 +9,7 @@ export interface UserDoc extends Document {
   employeeId?: string;
   email: string;
   password: string;
-  role: "superadmin" | "admin" | "user";
+  roleId?: mongoose.Types.ObjectId;
   isActive: boolean;
   createdBy?: mongoose.Types.ObjectId;
 
@@ -62,10 +62,10 @@ const userSchema = new Schema<UserDoc>(
       select: false, // Hide password by default
     },
 
-    role: {
-      type: String,
-      enum: ["superadmin", "admin", "user"],
-      default: "user",
+    roleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Role",
+      required: true,
     },
 
     jobRole: {

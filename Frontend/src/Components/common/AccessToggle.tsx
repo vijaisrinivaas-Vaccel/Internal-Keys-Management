@@ -23,9 +23,7 @@ export default function AccessToggle({ enabled: propEnabled, setEnabled: propSet
   return (
     <div className="flex items-center gap-3">
       {/* Label */}
-      <span className="text-sm font-medium text-gray-700">
-        Access All :
-      </span>
+      
 
       {/* Toggle */}
       <button

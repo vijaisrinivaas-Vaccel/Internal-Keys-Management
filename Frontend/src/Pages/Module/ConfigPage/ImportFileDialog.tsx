@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { X, Upload, FileText, AlertCircle } from "lucide-react";
+import { X, Upload, FileText, AlertCircle, CheckCircle, AlertTriangle, Eye, FileCode, Database, Download } from "lucide-react";
 import { authFetch } from "../../../lib/auth";
 import ImportOptionsDialog from "./ImportConfirmDialog";
 
@@ -270,228 +270,271 @@ export default function ImportFileDialog({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl mx-4">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          
           {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Upload size={20} className="text-blue-600" />
-              Import Environment Variables
-            </h2>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition"
-            >
-              <X size={18} />
-            </button>
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                  <Upload size={24} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Import Environment Variables</h2>
+                  <p className="text-blue-100 text-sm mt-0.5">Import .env file or paste content directly</p>
+                </div>
+              </div>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+              >
+                <X size={20} className="text-white" />
+              </button>
+            </div>
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-4">
-            {/* Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
-              <AlertCircle size={16} className="text-blue-600 mt-0.5" />
-              <p className="text-sm text-blue-700">
-                Enter your environment variables in KEY=value format (one per line).
-                Lines starting with # are ignored as comments.
-              </p>
-            </div>
+          <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+            <div className="space-y-5">
+              
+              {/* Instructions */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                <div className="p-1.5 bg-blue-100 rounded-lg">
+                  <AlertCircle size={18} className="text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Format Instructions</p>
+                  <p className="text-sm text-blue-700 mt-0.5">
+                    Enter your environment variables in <code className="bg-blue-100 px-1.5 py-0.5 rounded">KEY=value</code> format (one per line).
+                    Lines starting with <code className="bg-blue-100 px-1.5 py-0.5 rounded">#</code> are ignored as comments.
+                  </p>
+                </div>
+              </div>
 
-            {/* File Input (hidden) */}
-            <input
-              type="file"
-              accept=".env,.txt"
-              ref={fileRef}
-              onChange={handleFileUpload}
-              className="hidden"
-            />
+              {/* File Input (hidden) */}
+              <input
+                type="file"
+                accept=".env,.txt"
+                ref={fileRef}
+                onChange={handleFileUpload}
+                className="hidden"
+              />
 
-            {/* Buttons */}
-            <div className="flex gap-2">
-              <button
-                onClick={handleFileImport}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
-              >
-                <FileText size={16} />
-                Import from .env file
-              </button>
-              {currentFileName && (
-                <span className="text-sm text-gray-500 flex items-center">
-                  Current file: {currentFileName}
-                </span>
-              )}
-            </div>
+              {/* Buttons */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleFileImport}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all font-medium"
+                >
+                  <FileText size={18} />
+                  Import from .env file
+                </button>
+                {currentFileName && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">
+                    <FileCode size={14} />
+                    <span>Current: {currentFileName}</span>
+                  </div>
+                )}
+              </div>
 
-            {/* Textarea */}
-            <textarea
-              value={envContent}
-              onChange={(e) => {
-                setEnvContent(e.target.value);
-                setError("");
-              }}
-              placeholder={`# Example:
+              {/* Textarea */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Environment Variables Content
+                </label>
+                <textarea
+                  value={envContent}
+                  onChange={(e) => {
+                    setEnvContent(e.target.value);
+                    setError("");
+                  }}
+                  placeholder={`# Example:
 DATABASE_URL=postgresql://localhost:5432/mydb
 API_KEY=sk_test_123456789
 SECRET_KEY=my-super-secret-key
 PORT=3000`}
-              className="w-full h-96 border rounded-lg p-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-
-            {/* Error/Success Messages */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                {error}
+                  className="w-full h-80 border-2 border-gray-200 rounded-xl p-4 font-mono text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                />
               </div>
-            )}
 
-            {success && (
-              <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg text-sm">
-                {success}
-              </div>
-            )}
+              {/* Error/Success Messages */}
+              {error && (
+                <div className="bg-red-50 border-l-4 border-red-500 rounded-xl p-4 flex items-start gap-3">
+                  <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800">Import Failed</p>
+                    <p className="text-sm text-red-700 mt-0.5">{error}</p>
+                  </div>
+                </div>
+              )}
 
-            {/* Badge Preview */}
-            {envContent.trim() && !error && (
-              <div className="bg-gray-50 border rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium text-gray-500">Preview & Validation:</p>
-                  {/* Color Legend */}
-                  <div className="flex flex-wrap gap-3 text-xs">
-                    <div className="flex items-center gap-1">
-                      <span className="text-green-500">✓</span>
-                      <span className="text-gray-600">Valid</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-orange-500">⚠️</span>
-                      <span className="text-gray-600">Duplicate</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-red-500">✗</span>
-                      <span className="text-gray-600">Invalid</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-green-600">#</span>
-                      <span className="text-gray-600">Comment</span>
+              {success && (
+                <div className="bg-green-50 border-l-4 border-green-500 rounded-xl p-4 flex items-start gap-3">
+                  <CheckCircle size={18} className="text-green-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-green-800">Import Successful</p>
+                    <p className="text-sm text-green-700 mt-0.5">{success}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Badge Preview */}
+              {envContent.trim() && !error && !success && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Database size={16} className="text-gray-600" />
+                        <span className="text-sm font-semibold text-gray-700">Preview & Validation</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Color Legend */}
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-gray-500">Valid</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                            <span className="text-gray-500">Duplicate</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <span className="text-gray-500">Invalid</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                            <span className="text-gray-500">Comment</span>
+                          </div>
+                        </div>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                          {countEntries(envContent)} entries
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                    {countEntries(envContent)} entries
-                  </span>
-                </div>
 
-                {/* Validation Summary */}
-                {(() => {
-                  const duplicateKeys = findDuplicateKeys(envContent);
-                  const invalidLines = findInvalidLines(envContent);
+                  {/* Validation Summary */}
+                  {(() => {
+                    const duplicateKeys = findDuplicateKeys(envContent);
+                    const invalidLines = findInvalidLines(envContent);
 
-                  if (duplicateKeys.length > 0 || invalidLines.length > 0) {
-                    return (
-                      <div className="mb-3 space-y-1">
-                        {duplicateKeys.length > 0 && (
-                          <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-                            ⚠️ Duplicate keys found: {duplicateKeys.join(', ')}
-                          </div>
-                        )}
-                        {invalidLines.length > 0 && (
-                          <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded-lg">
-                            ⚠️ {invalidLines.length} invalid line(s) detected
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-
-                {/* Scrollable Preview Area */}
-                <div className="max-h-60 overflow-y-auto font-mono text-xs space-y-1 border rounded-lg p-2 bg-white">
-                  {envContent.split("\n").map((line, idx) => {
-                    const trimmed = line.trim();
-                    if (trimmed === "") {
+                    if (duplicateKeys.length > 0 || invalidLines.length > 0) {
                       return (
-                        <div key={idx} className="flex items-center gap-2 text-gray-400 italic">
-                          <span>⎯</span>
-                          <span>empty line</span>
+                        <div className="px-4 py-3 border-b border-gray-200 space-y-2">
+                          {duplicateKeys.length > 0 && (
+                            <div className="flex items-center gap-2 text-sm text-orange-700 bg-orange-50 p-2 rounded-lg">
+                              <AlertTriangle size={14} />
+                              <span>Duplicate keys found: <span className="font-mono">{duplicateKeys.join(', ')}</span></span>
+                            </div>
+                          )}
+                          {invalidLines.length > 0 && (
+                            <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 p-2 rounded-lg">
+                              <AlertCircle size={14} />
+                              <span>{invalidLines.length} invalid line(s) detected</span>
+                            </div>
+                          )}
                         </div>
                       );
                     }
+                    return null;
+                  })()}
 
-                    const isComment = trimmed.startsWith("#");
-                    const isValid = isComment || trimmed.includes("=");
-                    const [key] = trimmed.split("=");
-                    const cleanKey = key?.trim() || "";
+                  {/* Scrollable Preview Area */}
+                  <div className="max-h-64 overflow-y-auto p-3 font-mono text-xs space-y-1">
+                    {envContent.split("\n").map((line, idx) => {
+                      const trimmed = line.trim();
+                      if (trimmed === "") {
+                        return (
+                          <div key={idx} className="flex items-center gap-2 text-gray-400 italic">
+                            <span>⎯</span>
+                            <span>empty line</span>
+                          </div>
+                        );
+                      }
 
-                    // Check for duplicate keys (only if not a comment)
-                    const isDuplicate = !isComment && cleanKey && isKeyDuplicate(envContent, cleanKey, idx);
+                      const isComment = trimmed.startsWith("#");
+                      const isValid = isComment || trimmed.includes("=");
+                      const [key] = trimmed.split("=");
+                      const cleanKey = key?.trim() || "";
 
-                    // Determine line color
-                    let lineColor = "text-gray-700";
-                    let bgColor = "";
-                    let icon = null;
+                      // Check for duplicate keys (only if not a comment)
+                      const isDuplicate = !isComment && cleanKey && isKeyDuplicate(envContent, cleanKey, idx);
 
-                    if (isComment) {
-                      lineColor = "text-green-600";
-                      icon = <span className="text-green-500">#</span>;
-                    } else if (!isValid) {
-                      lineColor = "text-red-600";
-                      bgColor = "bg-red-50";
-                      icon = <span className="text-red-500">✗</span>;
-                    } else if (isDuplicate) {
-                      lineColor = "text-orange-600";
-                      bgColor = "bg-orange-50";
-                      icon = <span className="text-orange-500">⚠️</span>;
-                    } else {
-                      icon = <span className="text-green-500">✓</span>;
-                    }
+                      let bgColor = "";
+                      let icon = null;
 
-                    return (
-                      <div
-                        key={idx}
-                        className={`flex items-start gap-2 p-1 rounded ${bgColor}`}
-                      >
-                        <span className="shrink-0 mt-0.5">{icon}</span>
-                        <div className="flex-1 truncate">
-                          {isComment ? (
-                            <span className="text-green-600">{line}</span>
-                          ) : (
-                            <>
-                              <span className={isDuplicate ? "text-orange-600 font-medium" : "text-blue-600 font-medium"}>
-                                {cleanKey}
-                              </span>
-                              {line.includes("=") && (
-                                <>
-                                  <span className="text-gray-400">=</span>
-                                  <span className="text-gray-600">
-                                    {line.substring(line.indexOf("=") + 1)}
-                                  </span>
-                                </>
-                              )}
-                            </>
-                          )}
+                      if (isComment) {
+                        icon = <span className="text-green-600">#</span>;
+                      } else if (!isValid) {
+                        bgColor = "bg-red-50";
+                        icon = <span className="text-red-500">✗</span>;
+                      } else if (isDuplicate) {
+                        bgColor = "bg-orange-50";
+                        icon = <span className="text-orange-500">⚠️</span>;
+                      } else {
+                        icon = <span className="text-green-500">✓</span>;
+                      }
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-start gap-2 p-1.5 rounded ${bgColor}`}
+                        >
+                          <span className="shrink-0 mt-0.5">{icon}</span>
+                          <div className="flex-1 truncate">
+                            {isComment ? (
+                              <span className="text-green-600">{line}</span>
+                            ) : (
+                              <>
+                                <span className={isDuplicate ? "text-orange-600 font-medium" : "text-blue-600 font-medium"}>
+                                  {cleanKey}
+                                </span>
+                                {line.includes("=") && (
+                                  <>
+                                    <span className="text-gray-400">=</span>
+                                    <span className="text-gray-600">
+                                      {line.substring(line.indexOf("=") + 1)}
+                                    </span>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
+          <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/80">
             <button
               onClick={() => onOpenChange(false)}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-100 transition"
+              className="px-5 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200"
             >
               Cancel
             </button>
             <button
               onClick={handleImport}
               disabled={loading || !envContent.trim()}
-              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Upload size={16} />
-              {loading ? "Importing..." : "Import"}
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload size={18} />
+                  Import
+                </>
+              )}
             </button>
           </div>
         </div>

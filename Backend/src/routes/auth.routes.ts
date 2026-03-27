@@ -10,6 +10,7 @@ import {
 
 import {
   authMiddleware,
+  attachUserIfPresent,
   authorizeRoles,
 } from "../middlewares/auth.middleware";
 
@@ -18,7 +19,7 @@ const router = Router();
 router.post("/register", register);
 router.post("/login", login);
 router.post("/refresh", refreshAccessToken);
-router.post("/logout", logout);
+router.post("/logout", attachUserIfPresent, logout);
 
 router.get("/me", authMiddleware, getMe);
 router.post("/reset-password", authMiddleware, resetPassword);

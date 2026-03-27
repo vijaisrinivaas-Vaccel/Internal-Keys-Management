@@ -2,7 +2,25 @@ import { useEffect, useState, useCallback } from "react";
 import { authFetch } from "../../../lib/auth";
 import ConfigEntryDialog from "./ConfigEntryDialog";
 import ImportFileDialog from "./ImportFileDialog";
-import { Eye, EyeOff, Copy, CheckSquare, ChevronDown, ChevronRight, Move, Copy as CopyIcon, X, Upload, Plus, Download, FileText } from "lucide-react";
+import { 
+  Eye, 
+  EyeOff, 
+  Copy, 
+  CheckSquare, 
+  ChevronDown, 
+  ChevronRight, 
+  Move, 
+  Copy as CopyIcon, 
+  X, 
+  Upload, 
+  Plus, 
+  Download, 
+  FileText,
+  LayoutTemplate,
+  GitBranch,
+  Settings,
+  Key
+} from "lucide-react";
 import { Delbutton, EditButton } from "../../../Components/ui/Button";
 import ConfirmationDialog from "../../../Components/common/ConfirmationDialog";
 import { usePermissions } from "../../../Components/hooks/usePermissions";
@@ -381,27 +399,31 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
   // Loading states
   if (isAuthenticated === null || permissionsLoading) {
     return (
-      <div className="bg-white rounded-xl shadow p-6 text-center">
-        Loading configurations...
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="text-gray-500 mt-3">Loading configurations...</p>
       </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="bg-white rounded-xl shadow p-6 text-center text-red-600">
-        Please log in to continue
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <X size={20} className="text-red-600" />
+        </div>
+        <p className="text-red-600">Please log in to continue</p>
       </div>
     );
   }
 
   if (fetchError) {
     return (
-      <div className="bg-white rounded-xl shadow p-6 text-center">
-        <p className="text-red-600 mb-2">Error: {fetchError}</p>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+        <p className="text-red-600 mb-3">Error: {fetchError}</p>
         <button 
           onClick={fetchConfigs}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
         >
           Retry
         </button>
@@ -448,67 +470,78 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
   if (entries.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">Configurations</h2>
-            {moduleName && (
-              <p className="text-sm text-gray-500 mt-1">
-                Module: <span className="font-medium text-gray-700">{moduleName}</span>
-              </p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            {canCreate && (
-              <>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">Configurations</h2>
+              {moduleName && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Module: <span className="font-medium text-gray-700">{moduleName}</span>
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {canCreate && (
+                <>
+                  <button
+                    onClick={() => {
+                      setSelectedEntry(null);
+                      setDialogOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    <Plus size={14} />
+                    Add Config
+                  </button>
+                  <button
+                    onClick={() => setTemplateDialogOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                  >
+                    <LayoutTemplate size={14} />
+                    Template
+                  </button>
+                  <button
+                    onClick={() => setImportDialogOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                  >
+                    <Upload size={14} />
+                    Import
+                  </button>
+                </>
+              )}
+              {canCreate && !isParent && (
                 <button
-                  onClick={() => {
-                    setSelectedEntry(null);
-                    setDialogOpen(true);
-                  }}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                  onClick={fetchFromParent}
+                  disabled={isFetchingParent}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
                 >
-                  <Plus size={16} />
-                  Add Config
+                  <GitBranch size={14} />
+                  {isFetchingParent ? "Syncing..." : "Parent"}
                 </button>
-                <button
-                  onClick={() => setTemplateDialogOpen(true)}
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                >
-                  <FileText size={16} />
-                  Use Template
-                </button>
-                <button
-                  onClick={() => setImportDialogOpen(true)}
-                  className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
-                >
-                  <Upload size={16} />
-                  Import
-                </button>
-              </>
-            )}
-            {canCreate && !isParent && (
+              )}
               <button
-                onClick={fetchFromParent}
-                disabled={isFetchingParent}
-                className="flex items-center gap-2 bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors shadow-sm disabled:opacity-50"
+                onClick={handleExport}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
               >
-                <Download size={16} />
-                {isFetchingParent ? "Fetching..." : "Fetch from Parent"}
+                <Download size={14} />
+                Export
               </button>
-            )}
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-            >
-              <Download size={16} />
-              Export
-            </button>
+            </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-12 text-center text-gray-500">
-            No configuration entries for this module
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FileText size={28} className="text-gray-400" />
           </div>
+          <p className="text-gray-500">No configuration entries for this module</p>
+          {canCreate && (
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              + Add your first config
+            </button>
+          )}
         </div>
 
         {/* Dialogs for empty state */}
@@ -537,94 +570,106 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
     );
   }
 
+  const getStatusColor = (status?: string) => {
+    switch (status) {
+      case "expired": return "bg-red-100 text-red-700";
+      case "near_expiry": return "bg-yellow-100 text-yellow-700";
+      case "new": return "bg-blue-100 text-blue-700";
+      case "revoked": return "bg-gray-100 text-gray-700";
+      default: return "bg-green-100 text-green-700";
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">Configurations</h2>
-            {moduleName && (
-              <p className="text-sm text-gray-500 mt-1">
-                Module: <span className="font-medium text-gray-700">{moduleName}</span>
-              </p>
-            )}
-          </div>
-          {!selectionMode ? (
-            <button
-              onClick={toggleSelectionMode}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200 transition-colors"
-            >
-              <CheckSquare size={16} />
-              Select Multiple
-            </button>
-          ) : (
-            <div className="flex items-center gap-3 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">Configurations</h2>
+              {moduleName && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Module: <span className="font-medium text-gray-700">{moduleName}</span>
+                </p>
+              )}
+            </div>
+            {!selectionMode ? (
               <button
                 onClick={toggleSelectionMode}
-                className="p-1 text-gray-500 hover:text-gray-700 rounded hover:bg-white"
-                title="Cancel selection"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200 transition-colors"
               >
-                <X size={16} />
+                <CheckSquare size={14} />
+                Select
               </button>
-              <span className="text-sm font-medium text-blue-700">
-                {selectedConfigs.size} selected
-              </span>
+            ) : (
+              <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
+                <button
+                  onClick={toggleSelectionMode}
+                  className="p-1 text-gray-500 hover:text-gray-700 rounded hover:bg-white"
+                  title="Cancel selection"
+                >
+                  <X size={14} />
+                </button>
+                <span className="text-sm font-medium text-blue-700">
+                  {selectedConfigs.size} selected
+                </span>
+                <button
+                  onClick={selectAllConfigs}
+                  className="text-sm text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-white rounded"
+                >
+                  {selectedConfigs.size === entries.length ? "Deselect All" : "Select All"}
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {canCreate && !selectionMode && (
+              <>
+                <button
+                  onClick={() => {
+                    setSelectedEntry(null);
+                    setDialogOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  <Plus size={14} />
+                  Add
+                </button>
+                <button
+                  onClick={() => setTemplateDialogOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                >
+                  <LayoutTemplate size={14} />
+                  Template
+                </button>
+                <button
+                  onClick={() => setImportDialogOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                >
+                  <Upload size={14} />
+                  Import
+                </button>
+              </>
+            )}
+            {canCreate && !isParent && !selectionMode && (
               <button
-                onClick={selectAllConfigs}
-                className="text-sm text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-white rounded"
+                onClick={fetchFromParent}
+                disabled={isFetchingParent}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
               >
-                {selectedConfigs.size === entries.length ? "Deselect All" : "Select All"}
+                <GitBranch size={14} />
+                {isFetchingParent ? "Syncing..." : "Parent"}
               </button>
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {canCreate && !selectionMode && (
-            <>
-              <button
-                onClick={() => {
-                  setSelectedEntry(null);
-                  setDialogOpen(true);
-                }}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-              >
-                <Plus size={16} />
-                Add Config
-              </button>
-              <button
-                onClick={() => setTemplateDialogOpen(true)}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-              >
-                <FileText size={16} />
-                Use Template
-              </button>
-              <button
-                onClick={() => setImportDialogOpen(true)}
-                className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
-              >
-                <Upload size={16} />
-                Import
-              </button>
-            </>
-          )}
-          {canCreate && !isParent && !selectionMode && (
+            )}
             <button
-              onClick={fetchFromParent}
-              disabled={isFetchingParent}
-              className="flex items-center gap-2 bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors shadow-sm disabled:opacity-50"
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
             >
-              <Download size={16} />
-              {isFetchingParent ? "Fetching..." : "Fetch from Parent"}
+              <Download size={14} />
+              Export
             </button>
-          )}
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-          >
-            <Download size={16} />
-            Export
-          </button>
+          </div>
         </div>
       </div>
 
@@ -642,8 +687,8 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
             >
-              <Move size={16} />
-              Move to...
+              <Move size={14} />
+              Move
             </button>
             <button
               onClick={() => {
@@ -652,8 +697,8 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
             >
-              <CopyIcon size={16} />
-              Copy to...
+              <CopyIcon size={14} />
+              Copy
             </button>
           </div>
         </div>
@@ -664,7 +709,7 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Apply Configuration Template</h3>
+              <h3 className="text-lg font-semibold text-gray-800">Apply Template</h3>
               <button
                 onClick={() => setTemplateDialogOpen(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -672,35 +717,25 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
                 <X size={18} />
               </button>
             </div>
-
             <p className="text-sm text-gray-600 mb-4">
-              Select a template to apply configurations to this module
+              Select a template to apply configurations
             </p>
-
-            {/* Template List */}
             <div className="border border-gray-200 rounded-lg divide-y max-h-60 overflow-y-auto mb-4">
               {templates.length > 0 ? (
                 templates.map((template) => (
-                  <label
-                    key={template._id}
-                    className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
-                  >
+                  <label key={template._id} className="flex items-center p-3 hover:bg-gray-50 cursor-pointer">
                     <input
                       type="radio"
                       name="template"
                       value={template._id}
                       checked={selectedTemplate === template._id}
                       onChange={(e) => setSelectedTemplate(e.target.value)}
-                      className="mr-3 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      className="mr-3 w-4 h-4 text-blue-600"
                     />
                     <div className="flex-1">
                       <span className="text-sm font-medium text-gray-800">{template.name}</span>
-                      {template.description && (
-                        <p className="text-xs text-gray-500 mt-1">{template.description}</p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-1">
-                        {template.configs.length} configuration(s)
-                      </p>
+                      {template.description && <p className="text-xs text-gray-500 mt-1">{template.description}</p>}
+                      <p className="text-xs text-gray-400 mt-1">{template.configs.length} config(s)</p>
                     </div>
                   </label>
                 ))
@@ -708,8 +743,6 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
                 <p className="text-sm text-gray-500 p-4 text-center">No templates available</p>
               )}
             </div>
-
-            {/* Template Preview */}
             {selectedTemplate && (
               <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Preview</h4>
@@ -719,29 +752,15 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
                       <span className="font-mono text-blue-600">{config.key}</span>
                       <span className="text-gray-400">=</span>
                       <span className="font-mono text-gray-600">••••••••</span>
-                      {config.description && (
-                        <span className="text-gray-400 italic text-[10px]">({config.description})</span>
-                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
-
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setTemplateDialogOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={applyTemplate}
-                disabled={!selectedTemplate || applyingTemplate}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {applyingTemplate ? "Applying..." : "Apply Template"}
-                {!applyingTemplate && <FileText size={16} />}
+              <button onClick={() => setTemplateDialogOpen(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-100">Cancel</button>
+              <button onClick={applyTemplate} disabled={!selectedTemplate || applyingTemplate} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                {applyingTemplate ? "Applying..." : "Apply"}
               </button>
             </div>
           </div>
@@ -754,75 +773,35 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-800">
-                {transferAction === "move" ? "Move" : "Copy"} Configurations
+                {transferAction === "move" ? "Move" : "Copy"} Configs
               </h3>
-              <button
-                onClick={() => {
-                  setShowModuleSelector(false);
-                  setTransferAction(null);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
+              <button onClick={() => { setShowModuleSelector(false); setTransferAction(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X size={18} />
               </button>
             </div>
-
             <p className="text-sm text-gray-600 mb-4">
-              Select target module to {transferAction} {selectedConfigs.size} configuration(s)
+              Select target module to {transferAction} {selectedConfigs.size} config(s)
             </p>
-
-            {/* Module List */}
-            <div className="border border-gray-200 rounded-lg divide-y max-h-60 overflow-y-auto mb-4">
-              <div
-                className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100"
-                onClick={() => setModulesExpanded(!modulesExpanded)}
-              >
+            <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto mb-4">
+              <div className="p-3 bg-gray-50 cursor-pointer hover:bg-gray-100" onClick={() => setModulesExpanded(!modulesExpanded)}>
                 <span className="font-medium text-gray-700">Available Modules</span>
-                {modulesExpanded ? <ChevronDown size={16} className="text-gray-500" /> : <ChevronRight size={16} className="text-gray-500" />}
+                {modulesExpanded ? <ChevronDown size={16} className="float-right" /> : <ChevronRight size={16} className="float-right" />}
               </div>
-              
               {modulesExpanded && (
                 <div className="p-2 space-y-1">
-                  {availableModules.length > 0 ? (
-                    availableModules.map((module) => (
-                      <label
-                        key={module._id}
-                        className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer"
-                      >
-                        <input
-                          type="radio"
-                          name="targetModule"
-                          value={module._id}
-                          checked={selectedTargetModule === module._id}
-                          onChange={(e) => setSelectedTargetModule(e.target.value)}
-                          className="mr-3 w-4 h-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-700">{module.moduleName}</span>
-                      </label>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500 p-2">No other modules available</p>
-                  )}
+                  {availableModules.length > 0 ? availableModules.map((module) => (
+                    <label key={module._id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
+                      <input type="radio" name="targetModule" value={module._id} checked={selectedTargetModule === module._id} onChange={(e) => setSelectedTargetModule(e.target.value)} className="mr-3" />
+                      <span className="text-sm">{module.moduleName}</span>
+                    </label>
+                  )) : <p className="text-sm text-gray-500 p-2">No other modules</p>}
                 </div>
               )}
             </div>
-
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowModuleSelector(false);
-                  setTransferAction(null);
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleTransfer}
-                disabled={!selectedTargetModule}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {transferAction === "move" ? "Move" : "Copy"} Configurations
+              <button onClick={() => { setShowModuleSelector(false); setTransferAction(null); }} className="px-4 py-2 border rounded-lg hover:bg-gray-100">Cancel</button>
+              <button onClick={handleTransfer} disabled={!selectedTargetModule} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {transferAction === "move" ? "Move" : "Copy"}
               </button>
             </div>
           </div>
@@ -831,18 +810,16 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* Table Header */}
         <div className={`grid ${selectionMode ? 'grid-cols-[30px_50px_180px_1fr_120px_100px_100px]' : 'grid-cols-[50px_180px_1fr_120px_100px_100px]'} gap-3 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider`}>
-          {selectionMode && <div className="text-center ">Select</div>}
-          <div className="text-gray-800 text-left">S.No</div>
-          <div className="text-gray-800 text-left">Key</div>
-          <div className="text-gray-800 text-left text-center">Value</div>
-          <div className="text-gray-800 text-left">Created</div>
-          <div className="text-gray-800 text-center">Status</div>
-          <div className="text-gray-800 text-center">Actions</div>
+          {selectionMode && <div className="text-center">Select</div>}
+          <div>#</div>
+          <div>Key</div>
+          <div>Value</div>
+          <div>Created</div>
+          <div className="text-center">Status</div>
+          <div className="text-center">Actions</div>
         </div>
 
-        {/* Table Rows */}
         {entries.map((entry, index) => {
           const isVisible = visibleMap[entry._id] || false;
           const canUpdateThis = canUpdate(entry._id);
@@ -852,82 +829,37 @@ export default function ConfigPage({ projectId, environmentId, moduleId, moduleN
           return (
             <div
               key={entry._id}
-              className={`grid ${selectionMode ? 'grid-cols-[30px_50px_180px_1fr_120px_100px_100px]' : 'grid-cols-[50px_180px_1fr_120px_100px_100px]'} gap-3 px-6 py-3 border-b border-gray-100 text-sm items-center hover:bg-gray-50 transition-colors ${
-                isSelected ? "bg-blue-50/50" : ""
-              }`}
+              className={`grid ${selectionMode ? 'grid-cols-[30px_50px_180px_1fr_120px_100px_100px]' : 'grid-cols-[50px_180px_1fr_120px_100px_100px]'} gap-3 px-6 py-3 border-b border-gray-100 text-sm items-center hover:bg-gray-50 transition-colors ${isSelected ? "bg-blue-50/50" : ""}`}
             >
               {selectionMode && (
                 <div className="flex justify-center">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleConfigSelection(entry._id)}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleConfigSelection(entry._id)} className="w-4 h-4 rounded" />
                 </div>
               )}
-              <div className="text-gray-800">{index + 1}</div>
-              <div className="font-mono text-gray-800 truncate">{entry.key}</div>
+              <div className="text-gray-600">{index + 1}</div>
+              <div className="font-mono text-gray-800 font-medium truncate">{entry.key}</div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-gray-800 truncate">
+                <span className="font-mono text-gray-600 truncate">
                   {isVisible ? entry.value : "••••••••••••••••••••••••••••"}
                 </span>
                 <div className="flex gap-1 shrink-0">
-                  <button
-                    onClick={() =>
-                      setVisibleMap((prev) => ({
-                        ...prev,
-                        [entry._id]: !isVisible,
-                      }))
-                    }
-                    className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                    title={isVisible ? "Hide value" : "Show value"}
-                  >
+                  <button onClick={() => setVisibleMap(prev => ({ ...prev, [entry._id]: !isVisible }))} className="p-1 text-gray-400 hover:text-blue-600 transition" title={isVisible ? "Hide" : "Show"}>
                     {isVisible ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
-                  <button
-                    onClick={() => handleCopy(entry.value)}
-                    className="p-1 text-gray-400 hover:text-green-600 transition-colors"
-                    title="Copy value"
-                  >
+                  <button onClick={() => handleCopy(entry.value)} className="p-1 text-gray-400 hover:text-green-600 transition" title="Copy">
                     <Copy size={14} />
                   </button>
                 </div>
               </div>
-              <div className="text-gray-800 text-xs">
-                {new Date(entry.createdAt).toLocaleDateString()}
-              </div>
+              <div className="text-gray-500 text-xs">{new Date(entry.createdAt).toLocaleDateString()}</div>
               <div className="flex justify-center">
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    entry.keyStatus === "expired"
-                      ? "bg-red-100 text-red-700"
-                      : entry.keyStatus === "near_expiry"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : entry.keyStatus === "new"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(entry.keyStatus)}`}>
                   {entry.keyStatus || "active"}
                 </span>
               </div>
               <div className="flex gap-1 justify-center">
-                {!selectionMode && canUpdateThis && (
-                  <div className="p-1.5 flex items-center justify-center" title="Edit">
-                    <EditButton onClick={() => handleEdit(entry)} />
-                  </div>
-                )}
-                {!selectionMode && canDeleteThis && (
-                  <div className="p-1.5 flex items-center justify-center" title="Delete">
-                    <Delbutton
-                      onClick={() => {
-                        setDeleteId(entry._id);
-                        setConfirmOpen(true);
-                      }}
-                    />
-                  </div>
-                )}
+                {!selectionMode && canUpdateThis && <EditButton onClick={() => handleEdit(entry)} />}
+                {!selectionMode && canDeleteThis && <Delbutton onClick={() => { setDeleteId(entry._id); setConfirmOpen(true); }} />}
               </div>
             </div>
           );

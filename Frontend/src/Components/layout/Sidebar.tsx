@@ -1,12 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import RoleGuard from "../../Components/RoleGuard";
-import { permissions, type Role } from "../../lib/permissions";
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-} from "../../Components/ui/Accordion";
+import { PERMISSIONS } from "../../lib/permissions";
 import { Shield, UserPen } from "lucide-react";
 
 export default function Sidebar() {
@@ -31,54 +25,62 @@ export default function Sidebar() {
         <div className="flex-1 space-y-3 overflow-y-auto">
 
           {/* Dashboard */}
-          <NavLink to="/" className={linkClass}>
-            Dashboard
-          </NavLink>
+          <RoleGuard requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
+            <NavLink to="/" className={linkClass}>
+              Dashboard
+            </NavLink>
+          </RoleGuard>
 
-          {/* Projects Accordion */}
-          <Accordion type="single" collapsible>
-            <AccordionItem value="projects" className="border-none">
-              
-              <AccordionTrigger className="px-3 py-2 rounded-lg text-sm font-medium text-gray-800 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/60 hover:no-underline transition-colors">
-                Projects
-              </AccordionTrigger>
+          {/* All Projects */}
+          <RoleGuard requiredPermission={PERMISSIONS.VIEW_ALLPROJECT}>
+            <NavLink
+              to="/projects"
+              className={({ isActive }) =>
+                linkClass({
+                  isActive:
+                    isActive &&
+                    !location.pathname.includes("manage-assignments") &&
+                    !location.pathname.includes("assigned"),
+                })
+              }
+            >
+              All Projects
+            </NavLink>
+          </RoleGuard>
 
-              <AccordionContent className="pl-4 mt-1 space-y-1">
-                <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
-                  <NavLink
-                    to="/projects"
-                    className={({ isActive }) =>
-                      linkClass({
-                        isActive:
-                          isActive &&
-                          !location.pathname.includes("manage-assignments") &&
-                          !location.pathname.includes("assigned"),
-                      })
-                    }
-                  >
-                    All Projects
-                  </NavLink>
-                </RoleGuard>
-                <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
-                    <NavLink to="/projects/manage-assignments" className={linkClass} >
-                      Manage Assigning 
-                    </NavLink>
-                </RoleGuard>
-                
-                <NavLink to="/projects/assigned" className={linkClass}>
-                  My Assignments
-                </NavLink>
+          {/* Manage Assigning */}
+          <RoleGuard
+            requiredPermissions={[
+              PERMISSIONS.VIEW_MANAGEASSIGNING,
+              PERMISSIONS.MANAGE_USERS
+            ]}
+            requireAll
+          >
+            <NavLink to="/projects/manage-assignments" className={linkClass}>
+              Manage Assigning
+            </NavLink>
+          </RoleGuard>
 
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          {/* My Assignments */}
+          <RoleGuard requiredPermission={PERMISSIONS.VIEW_MYASSIGNMENT}>
+            <NavLink to="/projects/assigned" className={linkClass}>
+              My Assignments
+            </NavLink>
+          </RoleGuard>
 
         </div>
 
         {/* ================= BOTTOM SECTION ================= */}
         <div className="border-t border-blue-300 dark:border-slate-800 pt-4 space-y-3">
 
-          <RoleGuard allowedRoles={permissions.forSuperadmin as Role[]}>
+          <RoleGuard
+            requiredPermissions={[
+              PERMISSIONS.VIEW_PROJECT_TEMPLATES,
+              PERMISSIONS.VIEW_CONFIG_TEMPLATES,
+              PERMISSIONS.VIEW_USER_ROLES,
+              PERMISSIONS.VIEW_SYSTEM_SETTINGS
+            ]}
+          >
             <NavLink
               to="/admin-management"
               className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
@@ -88,7 +90,7 @@ export default function Sidebar() {
             </NavLink>
           </RoleGuard>
 
-          <RoleGuard allowedRoles={permissions.forAdmins as Role[]}>
+          <RoleGuard requiredPermission={PERMISSIONS.VIEW_USERS}>
             <NavLink
               to="/user-management"
               className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
@@ -98,13 +100,17 @@ export default function Sidebar() {
             </NavLink>
           </RoleGuard>
 
-          <NavLink to="/reports" className={linkClass}>
-            Reports
-          </NavLink>
+          <RoleGuard requiredPermission={PERMISSIONS.VIEW_REPORTS}>
+            <NavLink to="/reports" className={linkClass}>
+              Reports
+            </NavLink>
+          </RoleGuard>
 
-          <NavLink to="/settings" className={linkClass}>
-            Settings
-          </NavLink>
+          <RoleGuard requiredPermission={PERMISSIONS.ACCESS_SETTINGS}>
+            <NavLink to="/settings" className={linkClass}>
+              Settings
+            </NavLink>
+          </RoleGuard>
 
         </div>
       </div>

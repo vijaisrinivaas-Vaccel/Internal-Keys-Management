@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog as DialogRoot,
   DialogContent,
@@ -7,6 +7,7 @@ import {
 } from "../../Components/ui/Dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { authFetch } from "../../lib/auth";
+import { Plus, X, Loader2, FolderTree } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -24,71 +25,154 @@ export default function AddModuleDialog({
   environmentId,
 }: Props) {
   const [moduleName, setModuleName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setModuleName("");
+      setError("");
+      setLoading(false);
+    }
+  }, [open]);
 
   const handleCreate = async () => {
-    if (!moduleName.trim()) return;
-
-    const res = await authFetch("http://localhost:8000/api/modules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        moduleName,
-        projectId,
-        environmentId,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      console.error(err);
+    if (!moduleName.trim()) {
+      setError("Module name is required");
       return;
     }
 
-    setModuleName("");
-    onSuccess();
-    onOpenChange(false);
+    if (moduleName.trim().length < 3) {
+      setError("Module name must be at least 3 characters");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await authFetch("http://localhost:8000/api/modules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          moduleName: moduleName.trim(),
+          projectId,
+          environmentId,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.message || "Failed to create module");
+        return;
+      }
+
+      setModuleName("");
+      onSuccess();
+      onOpenChange(false);
+    } catch (err) {
+      setError("Network error occurred");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !loading) {
+      handleCreate();
+    }
   };
 
   return (
     <DialogRoot open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm p-5 rounded-xl">
+      <DialogContent className="max-w-md p-0 rounded-2xl overflow-hidden bg-white shadow-2xl">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+              <FolderTree size={20} className="text-white" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-bold text-white">
+                Create Module
+              </DialogTitle>
+              <DialogDescription className="text-blue-100 text-sm mt-0.5">
+                Add a new module to this environment
+              </DialogDescription>
+            </div>
+          </div>
+        </div>
 
-        {/* REQUIRED FOR ACCESSIBILITY */}
-        <VisuallyHidden>
-          <DialogTitle>Create Module</DialogTitle>
-          <DialogDescription>
-            Create a new module inside this environment
-          </DialogDescription>
-        </VisuallyHidden>
+        {/* Content */}
+        <div className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Module Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Enter module name"
+                value={moduleName}
+                onChange={(e) => {
+                  setModuleName(e.target.value);
+                  setError("");
+                }}
+                onKeyPress={handleKeyPress}
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                autoFocus
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Must be at least 3 characters
+              </p>
+            </div>
 
-        {/* Visible Title */}
-        <h2 className="text-base font-semibold mb-3">
-          Create Module
-        </h2>
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-3 flex items-center gap-2">
+                <X size={16} className="text-red-500" />
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+          </div>
+        </div>
 
-        <input
-          type="text"
-          placeholder="Module name"
-          value={moduleName}
-          onChange={(e) => setModuleName(e.target.value)}
-          className="border w-full px-3 py-2 rounded text-sm"
-        />
-
-        <div className="flex justify-end mt-4 gap-2">
+        {/* Footer */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
           <button
             onClick={() => onOpenChange(false)}
-            className="text-sm"
+            disabled={loading}
+            className="px-5 py-2 border-2 border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 disabled:opacity-50"
           >
             Cancel
           </button>
 
           <button
             onClick={handleCreate}
-            className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
+            disabled={loading || !moduleName.trim()}
+            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus size={18} />
+                Create Module
+              </>
+            )}
           </button>
         </div>
+
+        <VisuallyHidden>
+          <DialogTitle>Create Module</DialogTitle>
+          <DialogDescription>
+            Create a new module inside this environment
+          </DialogDescription>
+        </VisuallyHidden>
       </DialogContent>
     </DialogRoot>
   );

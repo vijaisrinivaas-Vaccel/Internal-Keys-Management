@@ -4,6 +4,7 @@ import ProjectUserPermission from "../models/ProjectUserPermission.model";
 import User from "../models/User.model";
 import { Module } from "../models/Module.model";
 import {Permission , PERMISSIONS} from "../config/accessControl";
+import { logAudit } from "../middlewares/auditLogger";
 
 /* ================= CHECK CONFIG PERMISSION ================= */
 const checkConfigPermission = async (
@@ -15,8 +16,9 @@ const checkConfigPermission = async (
   requiredPermission: Permission
 ): Promise<boolean> => {
   // Superadmin can do everything
-  const user = await User.findById(userId);
-  if (user?.role === "superadmin") return true;
+  const user = await User.findById(userId).populate("roleId");
+  const roleName = (user?.roleId as any)?.name || "user";
+  if (roleName === "superadmin") return true;
 
   // Check if user has permission
   const permission = await ProjectUserPermission.findOne({
@@ -57,6 +59,29 @@ const checkConfigPermission = async (
   return module.permissions.includes(requiredPermission);
 };
 
+const summarizeItems = (items: string[], label = "items"): string => {
+  const cleaned = Array.from(
+    new Set(
+      items
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (cleaned.length === 0) return `No ${label}`;
+  const preview = cleaned.slice(0, 6).join(", ");
+  const remaining = cleaned.length - 6;
+
+  return remaining > 0 ? `${preview} (+${remaining} more)` : preview;
+};
+
+const formatDateForChange = (value: unknown): string => {
+  if (!value) return "none";
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString();
+};
+
 /* ================= CREATE CONFIG ENTRY ================= */
 export const createConfigEntry = async (req: Request, res: Response) => {
   try {
@@ -68,7 +93,7 @@ export const createConfigEntry = async (req: Request, res: Response) => {
     }
 
     // Check permission
-    if (user.role !== "superadmin") {
+    if (user.roleName !== "superadmin") {
       const hasPermission = await checkConfigPermission(
         user.id,
         projectId,
@@ -108,10 +133,30 @@ export const createConfigEntry = async (req: Request, res: Response) => {
       updateDoc,
       { 
         upsert: true, 
-        new: true,
+        returnDocument: 'after',
         setDefaultsOnInsert: true
       }
     );
+
+    // Audit log: CREATE_CONFIG
+    const createdKeys = entries.map((entry: any) => entry?.key).filter(Boolean);
+    logAudit({
+      category: "activity",
+      action: "CREATE_CONFIG",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(updated?._id),
+      details: `Created ${entries.length} config entry(ies)`,
+      metadata: {
+        projectId,
+        moduleId,
+        environmentId,
+        entryCount: entries.length,
+        createdKeys,
+        changeSummary: `Added config keys: ${summarizeItems(createdKeys, "keys")}`,
+      },
+      req,
+    });
 
     return res.json(updated);
   } catch (err) {
@@ -155,7 +200,7 @@ export const getConfigEntries = async (req: Request, res: Response) => {
     }
 
     // Superadmin sees all entries
-    if (user.role === "superadmin") {
+    if (user.roleName === "superadmin") {
       const processedEntries = config.entries.map((entry: any) => ({
         ...entry,
         value: decryptValue(entry.value),
@@ -285,7 +330,7 @@ export const updateConfigEntry = async (req: Request, res: Response) => {
     }
 
     // Check permission for first entry (assuming all entries same module)
-    if (user.role !== "superadmin" && entries.length > 0) {
+    if (user.roleName !== "superadmin" && entries.length > 0) {
       const hasPermission = await checkConfigPermission(
         user.id,
         config.projectId.toString(),
@@ -300,6 +345,14 @@ export const updateConfigEntry = async (req: Request, res: Response) => {
       }
     }
 
+    const previousEntries = (config.entries || []).map((entry: any) => ({
+      id: entry._id?.toString(),
+      key: entry.key,
+      value: entry.value,
+      expireAt: entry.expireAt ? new Date(entry.expireAt).toISOString() : null,
+      description: entry.description || "",
+    }));
+
     const updated = await ConfigEntry.findByIdAndUpdate(
       id,
       {
@@ -307,10 +360,79 @@ export const updateConfigEntry = async (req: Request, res: Response) => {
         lastEditedByName: user?.username || "system",
       },
       { 
-        returnDocument: 'after',
-        new: true 
+        returnDocument: 'after'
       }
     );
+
+    const nextEntries = (entries || []).map((entry: any) => ({
+      id: entry?._id ? String(entry._id) : undefined,
+      key: entry?.key,
+      value: entry?.value,
+      expireAt: entry?.expireAt ? new Date(entry.expireAt).toISOString() : null,
+      description: entry?.description || "",
+    }));
+
+    const previousById = new Map(previousEntries.map((entry) => [entry.id, entry]));
+    const nextById = new Map(nextEntries.filter((entry) => entry.id).map((entry) => [entry.id, entry]));
+
+    const addedKeys = nextEntries
+      .filter((entry) => !entry.id || !previousById.has(entry.id))
+      .map((entry) => entry.key)
+      .filter(Boolean) as string[];
+
+    const removedKeys = previousEntries
+      .filter((entry) => !entry.id || !nextById.has(entry.id))
+      .map((entry) => entry.key)
+      .filter(Boolean) as string[];
+
+    const updatedKeys = nextEntries
+      .filter((entry) => entry.id && previousById.has(entry.id))
+      .filter((entry) => {
+        const oldEntry = previousById.get(entry.id!)!;
+        return (
+          oldEntry.key !== entry.key ||
+          oldEntry.value !== entry.value ||
+          oldEntry.expireAt !== entry.expireAt ||
+          oldEntry.description !== entry.description
+        );
+      })
+      .map((entry) => entry.key)
+      .filter(Boolean) as string[];
+
+    const changeParts: string[] = [];
+    if (addedKeys.length > 0) {
+      changeParts.push(`Added keys: ${summarizeItems(addedKeys, "keys")}`);
+    }
+    if (updatedKeys.length > 0) {
+      changeParts.push(`Updated keys: ${summarizeItems(updatedKeys, "keys")}`);
+    }
+    if (removedKeys.length > 0) {
+      changeParts.push(`Removed keys: ${summarizeItems(removedKeys, "keys")}`);
+    }
+
+    const changeSummary =
+      changeParts.length > 0
+        ? changeParts.join(". ")
+        : "Updated configuration entries (no key-level differences detected)";
+
+    logAudit({
+      category: "activity",
+      action: "UPDATE_CONFIG",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(updated?._id || id),
+      details: `Updated ${entries.length} config entry(ies)`,
+      metadata: {
+        projectId: String(config.projectId),
+        moduleId: String(config.moduleId),
+        environmentId: String(config.environmentId),
+        addedKeys,
+        updatedKeys,
+        removedKeys,
+        changeSummary,
+      },
+      req,
+    });
 
     return res.json(updated);
   } catch (err) {
@@ -341,7 +463,7 @@ export const updateConfigEntryItem = async (req: Request, res: Response) => {
     }
 
     // Check permission
-    if (user.role !== "superadmin") {
+    if (user.roleName !== "superadmin") {
       const hasPermission = await checkConfigPermission(
         user.id,
         config.projectId.toString(),
@@ -364,6 +486,12 @@ export const updateConfigEntryItem = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Entry not found" });
     }
 
+    const previousKey = String(entry.key || "");
+    const previousValue = String(entry.value || "");
+    const previousPlainValue = decryptValue(previousValue);
+    const previousExpireAt = entry.expireAt ? new Date(entry.expireAt).toISOString() : null;
+    const previousDescription = entry.description || "";
+
     entry.key = key;
     entry.value = "enc::" + encrypt(value);
     entry.expireAt = expireAt || null;
@@ -373,6 +501,45 @@ export const updateConfigEntryItem = async (req: Request, res: Response) => {
     config.lastEditedByName = user?.username || "system";
 
     await config.save();
+
+    const changedParts: string[] = [];
+    if (previousKey !== key) {
+      changedParts.push(`Renamed key from "${previousKey}" to "${key}"`);
+    }
+    if (previousPlainValue !== String(value)) {
+      changedParts.push(`Updated value for key "${key}"`);
+    }
+    const nextExpireAt = entry.expireAt ? new Date(entry.expireAt).toISOString() : null;
+    if (previousExpireAt !== nextExpireAt) {
+      changedParts.push(
+        `Changed expiry for "${key}" from ${formatDateForChange(previousExpireAt)} to ${formatDateForChange(nextExpireAt)}`
+      );
+    }
+    if (previousDescription !== (description || "")) {
+      changedParts.push(`Updated description for key "${key}"`);
+    }
+
+    logAudit({
+      category: "activity",
+      action: "UPDATE_CONFIG",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(config._id),
+      details: `Updated config key "${key}"`,
+      metadata: {
+        projectId: String(config.projectId),
+        moduleId: String(config.moduleId),
+        environmentId: String(config.environmentId),
+        entryId: entryId,
+        key,
+        previousKey,
+        changeSummary:
+          changedParts.length > 0
+            ? changedParts.join(". ")
+            : `Updated config key "${key}"`,
+      },
+      req,
+    });
 
     return res.json(config);
   } catch (err) {
@@ -401,8 +568,13 @@ export const deleteConfigEntryItem = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Entry not found" });
     }
 
+    const entryToDelete: any = config.entries.find(
+      (e: any) => e._id.toString() === entryId
+    );
+    const deletedKey = entryToDelete?.key || "unknown";
+
     // Check permission
-    if (user.role !== "superadmin") {
+    if (user.roleName !== "superadmin") {
       const hasPermission = await checkConfigPermission(
         user.id,
         config.projectId.toString(),
@@ -423,10 +595,27 @@ export const deleteConfigEntryItem = async (req: Request, res: Response) => {
         $pull: { entries: { _id: entryId } },
       },
       { 
-        returnDocument: 'after',
-        new: true 
+        returnDocument: 'after'
       }
     );
+
+    logAudit({
+      category: "activity",
+      action: "DELETE_CONFIG",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(config._id),
+      details: `Deleted config key "${deletedKey}"`,
+      metadata: {
+        projectId: String(config.projectId),
+        moduleId: String(config.moduleId),
+        environmentId: String(config.environmentId),
+        entryId,
+        deletedKey,
+        changeSummary: `Removed config key: ${deletedKey}`,
+      },
+      req,
+    });
 
     res.json(updated);
   } catch (err) {
@@ -448,7 +637,7 @@ export const importEnvFile = async (req: Request, res: Response) => {
     }
 
     // Check permission
-    if (user.role !== "superadmin") {
+    if (user.roleName !== "superadmin") {
       const hasPermission = await checkConfigPermission(
         user.id,
         projectId,
@@ -520,8 +709,38 @@ export const importEnvFile = async (req: Request, res: Response) => {
             updatedAt: new Date()
           }
         },
-        { new: true }
+        { returnDocument: 'after' }
       );
+
+      const importedKeys = newEntries.map((entry) => entry.key);
+      const duplicateKeys = duplicates.map((entry) => entry.key);
+      const summaryParts = [
+        `Imported keys: ${summarizeItems(importedKeys, "keys")}`,
+      ];
+
+      if (duplicateKeys.length > 0) {
+        summaryParts.push(`Skipped duplicate keys: ${summarizeItems(duplicateKeys, "keys")}`);
+      }
+
+      logAudit({
+        category: "activity",
+        action: "IMPORT_CONFIG",
+        userId: String(user.id),
+        userName: user.username || "Unknown",
+        targetId: String(updated?._id),
+        details: `Imported ${newEntries.length} config entry(ies)`,
+        metadata: {
+          projectId,
+          moduleId,
+          environmentId,
+          importedKeys,
+          duplicateKeys,
+          importedCount: newEntries.length,
+          duplicateCount: duplicateKeys.length,
+          changeSummary: summaryParts.join(". "),
+        },
+        req,
+      });
 
       return res.json({
         message: `Imported ${newEntries.length} new entries. ${duplicates.length} duplicate keys skipped.`,
@@ -538,6 +757,25 @@ export const importEnvFile = async (req: Request, res: Response) => {
         createdBy: user?.id,
         createdByName: user?.username || "system",
         lastEditedByName: user?.username || "system"
+      });
+
+      const importedKeys = encryptedEntries.map((entry) => entry.key);
+      logAudit({
+        category: "activity",
+        action: "IMPORT_CONFIG",
+        userId: String(user.id),
+        userName: user.username || "Unknown",
+        targetId: String(newConfig._id),
+        details: `Imported ${encryptedEntries.length} config entry(ies)`,
+        metadata: {
+          projectId,
+          moduleId,
+          environmentId,
+          importedKeys,
+          importedCount: encryptedEntries.length,
+          changeSummary: `Imported keys: ${summarizeItems(importedKeys, "keys")}`,
+        },
+        req,
       });
 
       return res.status(201).json({
@@ -574,13 +812,32 @@ export const exportEnvFile = async (req: Request, res: Response) => {
     }
 
     // Superadmin can export all
-    if (user.role === "superadmin") {
+    if (user.roleName === "superadmin") {
+      const exportedKeys = config.entries.map((entry: any) => entry.key).filter(Boolean);
       const envContent = config.entries
         .map((entry: any) => {
           const value = decryptValue(entry.value);
           return `${entry.key}=${value}`;
         })
         .join("\n");
+
+      logAudit({
+        category: "activity",
+        action: "EXPORT_CONFIG",
+        userId: String(user.id),
+        userName: user.username || "Unknown",
+        targetId: String(config._id),
+        details: `Exported ${config.entries.length} config entry(ies)`,
+        metadata: {
+          projectId: String(projectId || ""),
+          moduleId: String(moduleId || ""),
+          environmentId: String(environmentId || ""),
+          exportedKeys,
+          exportedCount: exportedKeys.length,
+          changeSummary: `Exported keys: ${summarizeItems(exportedKeys, "keys")}`,
+        },
+        req,
+      });
 
       res.setHeader(
         "Content-Disposition",
@@ -628,12 +885,33 @@ export const exportEnvFile = async (req: Request, res: Response) => {
           accessibleConfigIds.includes(entry._id.toString())
         );
 
+    const exportedKeys = accessibleEntries.map((entry: any) => entry.key).filter(Boolean);
+
     const envContent = accessibleEntries
       .map((entry: any) => {
         const value = decryptValue(entry.value);
         return `${entry.key}=${value}`;
       })
       .join("\n");
+
+    logAudit({
+      category: "activity",
+      action: "EXPORT_CONFIG",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(config._id),
+      details: `Exported ${accessibleEntries.length} config entry(ies)`,
+      metadata: {
+        projectId: String(projectId || ""),
+        moduleId: String(moduleId || ""),
+        environmentId: String(environmentId || ""),
+        exportedKeys,
+        exportedCount: exportedKeys.length,
+        accessAll: Boolean(module.accessAll),
+        changeSummary: `Exported keys: ${summarizeItems(exportedKeys, "keys")}`,
+      },
+      req,
+    });
 
     res.setHeader(
       "Content-Disposition",
@@ -683,6 +961,21 @@ export const transferConfigEntries = async (req: Request, res: Response) => {
     const { sourceModuleId, targetModuleId, environmentId, projectId, entries, action } = req.body;
     const user = (req as any).user;
 
+    if (!user || !user.id) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    if (!["move", "copy"].includes(String(action))) {
+      return res.status(400).json({ message: "Invalid transfer action" });
+    }
+
+    const selectedKeys = (entries || []).map((entry: any) => entry?.key).filter(Boolean);
+
+    const [sourceModule, targetModule] = await Promise.all([
+      Module.findById(sourceModuleId).select("moduleName"),
+      Module.findById(targetModuleId).select("moduleName"),
+    ]);
+
     if (action === "move") {
       // Remove from source module
       await ConfigEntry.updateOne(
@@ -710,8 +1003,32 @@ export const transferConfigEntries = async (req: Request, res: Response) => {
           createdByName: user.username,
         }
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
+
+    const transferLabel = action === "move" ? "Moved" : "Copied";
+    const actionName = action === "move" ? "MOVE_CONFIG" : "COPY_CONFIG";
+
+    logAudit({
+      category: "activity",
+      action: actionName,
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(targetConfig?._id),
+      details: `${transferLabel} ${selectedKeys.length} config entry(ies)`,
+      metadata: {
+        projectId,
+        environmentId,
+        sourceModuleId,
+        targetModuleId,
+        sourceModuleName: sourceModule?.moduleName || "Unknown",
+        targetModuleName: targetModule?.moduleName || "Unknown",
+        selectedKeys,
+        action,
+        changeSummary: `${transferLabel} keys to "${targetModule?.moduleName || "target module"}": ${summarizeItems(selectedKeys, "keys")}. Source module: "${sourceModule?.moduleName || "unknown"}"`,
+      },
+      req,
+    });
 
     res.json({ message: `${action} successful`, config: targetConfig });
   } catch (err) {
@@ -743,7 +1060,7 @@ export const syncFromParent = async (req: Request, res: Response) => {
     }
 
     // Check permission - require update config permission
-    if (user.role !== "superadmin") {
+    if (user.roleName !== "superadmin") {
       const hasPermission = await checkConfigPermission(
         userId,
         currentModule.projectId.toString(),
@@ -781,6 +1098,7 @@ export const syncFromParent = async (req: Request, res: Response) => {
 
     // 4. Sync values
     let updatedCount = 0;
+    const updatedKeys: string[] = [];
     const parentEntriesMap = new Map();
     
     parentConfig.entries.forEach((e: any) => {
@@ -799,6 +1117,7 @@ export const syncFromParent = async (req: Request, res: Response) => {
             e.value = "enc::" + encrypt(parentPlainValue);
             e.version = (e.version || 1) + 1;
             updatedCount++;
+            updatedKeys.push(e.key);
           }
         }
       } catch (err) {}
@@ -810,6 +1129,32 @@ export const syncFromParent = async (req: Request, res: Response) => {
       currentConfig.lastEditedByName = user.username || "system";
       await currentConfig.save();
     }
+
+    const changeSummary =
+      updatedCount > 0
+        ? `Fetched from parent module "${parentModule.moduleName}". Updated keys: ${summarizeItems(updatedKeys, "keys")}`
+        : `Fetched from parent module "${parentModule.moduleName}". No key values changed`;
+
+    logAudit({
+      category: "activity",
+      action: "FETCH_PARENT_CONFIG",
+      userId: String(userId),
+      userName: user.username || "Unknown",
+      targetId: String(currentConfig._id),
+      details: `Fetched ${updatedCount} configuration(s) from parent module`,
+      metadata: {
+        projectId: String(currentModule.projectId),
+        environmentId: String(currentModule.environmentId),
+        moduleId: String(currentModule._id),
+        moduleName: currentModule.moduleName,
+        parentModuleId: String(parentModule._id),
+        parentModuleName: parentModule.moduleName,
+        updatedCount,
+        updatedKeys,
+        changeSummary,
+      },
+      req,
+    });
 
     res.json({ 
       message: `Successfully synced ${updatedCount} configuration(s) from parent module`,

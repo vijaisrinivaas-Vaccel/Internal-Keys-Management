@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Eye, EyeOff, UserPlus } from "lucide-react";
 import { authFetch } from "../../lib/auth";
 
@@ -15,9 +15,14 @@ interface UserFormData {
   password: string;
   confirmPassword: string;
   employeeId: string;
-  role: "user" | "admin" | "superadmin";
+  roleId: string;
   jobRole: string;
   jobLevel: string;
+}
+
+interface Role {
+  _id: string;
+  name: string;
 }
 
 export default function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDialogProps) {
@@ -28,7 +33,7 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Crea
     password: "",
     confirmPassword: "",
     employeeId: "",
-    role: "user",
+    roleId: "",
     jobRole: "",
     jobLevel: "",
   });
@@ -37,6 +42,26 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Crea
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const res = await authFetch("http://localhost:8000/api/roles");
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableRoles(data);
+          // Set default role if available
+          if (data.length > 0 && !form.roleId) {
+            setForm(prev => ({ ...prev, roleId: data.find((r: any) => r.name === "user")?._id || data[0]._id }));
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching roles:", err);
+      }
+    };
+    if (open) fetchRoles();
+  }, [open]);
 
   // Password validation rules
   const passwordRules = {
@@ -91,7 +116,7 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Crea
           email: form.email,
           password: form.password,
           employeeId: form.employeeId,
-          role: form.role,
+          roleId: form.roleId,
           jobRole: form.jobRole || undefined,
           jobLevel: form.jobLevel || undefined,
         }),
@@ -112,7 +137,7 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Crea
         password: "",
         confirmPassword: "",
         employeeId: "",
-        role: "user",
+        roleId: availableRoles.find(r => r.name === "user")?._id || (availableRoles[0]?._id || ""),
         jobRole: "",
         jobLevel: "",
       });
@@ -219,13 +244,17 @@ export default function CreateUserDialog({ open, onOpenChange, onSuccess }: Crea
                 Role *
               </label>
               <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value as any })}
+                value={form.roleId}
+                onChange={(e) => setForm({ ...form, roleId: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
               >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-                <option value="superadmin">Superadmin</option>
+                <option value="" disabled>Select Role</option>
+                {availableRoles.map(role => (
+                  <option key={role._id} value={role._id}>
+                    {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                  </option>
+                ))}
               </select>
             </div>
 

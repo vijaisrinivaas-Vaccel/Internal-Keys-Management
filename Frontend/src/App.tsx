@@ -15,6 +15,7 @@ import MyAssignments from "./Pages/Projects/MyAssignments";
 
 import AdminManagement from "./Pages/Admin/AdminMangement";
 import UserManagement from "./Pages/Admin/UserManagement";
+import ReportPage from "./Pages/Reports/ReportPage";
 
 import SkeletonPageLoader from "./Components/Loader/SkeletonPageLoader";
 
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="project/:projectId/assign" element={<AssignProject />} />
           <Route path="admin-management" element={<AdminManagement />} />
           <Route path="user-management" element={<UserManagement />} />
+          <Route path="reports" element={<ReportPage />} />
         </Route>
       )}
       

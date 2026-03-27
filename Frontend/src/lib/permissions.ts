@@ -1,83 +1,58 @@
 // lib/permissions.ts
-import { PERMISSIONS, type Permission } from "../userModel/User";
-
-/* ================= ROLE TYPE ================= */
-
-export type Role = "superadmin" | "admin" | "user";
-
-/* ================= USER INTERFACE ================= */
-
-export interface User {
-  role: Role;
-  permissions?: Permission[];
-  [key: string]: any; // Allow other properties
-}
-
-/* ================= ROLE PERMISSIONS ================= */
-
-export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  superadmin: Object.values(PERMISSIONS),
-
-  admin: [
-    // ===== PROJECT =====
-    PERMISSIONS.CREATE_PROJECT,
-    PERMISSIONS.READ_PROJECT,
-    PERMISSIONS.UPDATE_PROJECT,
-
-    // ===== ENVIRONMENT =====
-    PERMISSIONS.CREATE_ENVIRONMENT,
-    PERMISSIONS.READ_ENVIRONMENT,
-    PERMISSIONS.UPDATE_ENVIRONMENT,
-
-    // ===== MODULE =====
-    PERMISSIONS.CREATE_MODULE,
-    PERMISSIONS.READ_MODULE,
-    PERMISSIONS.UPDATE_MODULE,
-
-    // ===== CONFIG =====
-    PERMISSIONS.CREATE_CONFIG,
-    PERMISSIONS.READ_CONFIG,
-    PERMISSIONS.UPDATE_CONFIG,
-
-    // ===== USER MANAGEMENT =====
-    PERMISSIONS.ASSIGN_USER,
-
-    // ===== REPORTS =====
-    PERMISSIONS.VIEW_REPORTS,
-  ],
-
-  user: [
-    // ===== READ ONLY =====
-    PERMISSIONS.READ_PROJECT,
-    PERMISSIONS.READ_ENVIRONMENT,
-    PERMISSIONS.READ_MODULE,
-    PERMISSIONS.READ_CONFIG,
-  ],
-};
+import { PERMISSIONS, type User } from "../userModel/User";
 
 /* ================= PERMISSION CHECK ================= */
 
+const PERMISSION_ALIASES: Record<string, string[]> = {
+  [PERMISSIONS.VIEW_PROJECTS]: [PERMISSIONS.VIEW_ALLPROJECT],
+  [PERMISSIONS.VIEW_ALLPROJECT]: [PERMISSIONS.VIEW_PROJECTS],
+};
+
+const expandPermissionAliases = (permission: string): string[] => {
+  const aliases = PERMISSION_ALIASES[permission] || [];
+  return [permission, ...aliases];
+};
+
+const getRolePermissions = (user: User | null): string[] => {
+  if (!user || !user.roleId || typeof user.roleId === "string") {
+    return [];
+  }
+
+  const roleDoc = user.roleId as any;
+  return Array.isArray(roleDoc.permissions) ? roleDoc.permissions : [];
+};
+
+const getAllUserPermissions = (user: User | null): string[] => {
+  if (!user) return [];
+  const rolePermissions = getRolePermissions(user);
+  const userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
+  const customPermissions = Array.isArray(user.customPermissions) ? user.customPermissions : [];
+  return [...new Set([...rolePermissions, ...userPermissions, ...customPermissions])];
+};
+
 export const hasPermission = (
   user: User | null,
-  requiredPermission: Permission
+  requiredPermission: string
 ): boolean => {
   if (!user) return false;
 
-  // Superadmin always has access
-  if (user.role === "superadmin") return true;
+  const allPermissions = getAllUserPermissions(user);
 
-  // Custom permissions override
-  if (user.permissions?.includes(requiredPermission)) return true;
+  // Superadmin override or direct '*' permission
+  if (user.role === "superadmin" || allPermissions.includes("*")) {
+    return true;
+  }
 
-  // Role permissions
-  return ROLE_PERMISSIONS[user.role]?.includes(requiredPermission) ?? false;
+  return expandPermissionAliases(requiredPermission).some((permission) =>
+    allPermissions.includes(permission)
+  );
 };
 
 /* ================= MULTIPLE PERMISSIONS ================= */
 
 export const hasAnyPermission = (
   user: User | null,
-  requiredPermissions: Permission[]
+  requiredPermissions: string[]
 ): boolean => {
   if (!user) return false;
   return requiredPermissions.some((perm) => hasPermission(user, perm));
@@ -85,7 +60,7 @@ export const hasAnyPermission = (
 
 export const hasAllPermissions = (
   user: User | null,
-  requiredPermissions: Permission[]
+  requiredPermissions: string[]
 ): boolean => {
   if (!user) return false;
   return requiredPermissions.every((perm) => hasPermission(user, perm));
@@ -93,17 +68,35 @@ export const hasAllPermissions = (
 
 /* ================= HELPERS ================= */
 
-// Used for superadmin-only actions like delete
-export const canDelete = (user: { role: Role } | null): boolean => {
-  return user?.role === "superadmin";
+// Used for superadmin-only actions
+export const isSuperAdmin = (user: User | null): boolean => {
+  return user?.role === "superadmin" || getAllUserPermissions(user).includes("*") || false;
 };
 
-/* ================= LEGACY ROLE SYSTEM ================= */
+const ENVIRONMENT_ACCESS_MAP: Record<string, string> = {
+  development: PERMISSIONS.ACCESS_DEVELOPMENT,
+  staging: PERMISSIONS.ACCESS_STAGING,
+  uat: PERMISSIONS.ACCESS_UAT,
+  production: PERMISSIONS.ACCESS_PRODUCTION,
+};
 
+export const getEnvironmentAccessPermission = (environmentName?: string): string | null => {
+  if (!environmentName) return null;
+  const normalized = environmentName.trim().toLowerCase();
+  return ENVIRONMENT_ACCESS_MAP[normalized] || null;
+};
+
+export const hasEnvironmentAccessByName = (user: User | null, environmentName?: string): boolean => {
+  const environmentPermission = getEnvironmentAccessPermission(environmentName);
+  if (!environmentPermission) return true;
+  return hasPermission(user, environmentPermission);
+};
+
+// Legacy support for RoleGuard if it uses these
 export const permissions = {
-  forSuperadmin: ["superadmin"] as Role[],
-  forAdmins: ["admin", "superadmin"] as Role[],
-  forUsers: ["user", "admin", "superadmin"] as Role[],
+  forSuperadmin: ["superadmin"],
+  forAdmins: ["admin", "superadmin"],
+  forUsers: ["user", "admin", "superadmin"],
 };
 
 // Re-export PERMISSIONS for convenience

@@ -35,6 +35,64 @@ interface Template {
   createdAt: string;
 }
 
+interface TemplateFormState {
+  name: string;
+  description: string;
+  isGlobal: boolean;
+  environments: EnvironmentConfig[];
+}
+
+const getModuleCount = (environments: EnvironmentConfig[]) =>
+  environments.reduce((count, env) => count + env.modules.length, 0);
+
+const getTemplateStructureSummary = (template: Pick<TemplateFormState, "environments">) =>
+  `${template.environments.length} environments, ${getModuleCount(template.environments)} modules`;
+
+const buildTemplateChangeSummary = (
+  before: Template | null,
+  after: TemplateFormState
+) => {
+  if (!before) {
+    return `Created template with ${getTemplateStructureSummary(after)}.`;
+  }
+
+  const parts: string[] = [];
+
+  if (before.name !== after.name) {
+    parts.push(`Name: "${before.name}" -> "${after.name}"`);
+  }
+  if ((before.description || "") !== (after.description || "")) {
+    parts.push("Description updated");
+  }
+  if (before.isGlobal !== after.isGlobal) {
+    parts.push(`Global default: ${before.isGlobal ? "ON" : "OFF"} -> ${after.isGlobal ? "ON" : "OFF"}`);
+  }
+
+  const beforeEnvs = new Set(before.environments.map((env) => env.name));
+  const afterEnvs = new Set(after.environments.map((env) => env.name));
+  const addedEnvs = [...afterEnvs].filter((name) => !beforeEnvs.has(name));
+  const removedEnvs = [...beforeEnvs].filter((name) => !afterEnvs.has(name));
+  if (addedEnvs.length > 0) parts.push(`Added environments: ${addedEnvs.join(", ")}`);
+  if (removedEnvs.length > 0) parts.push(`Removed environments: ${removedEnvs.join(", ")}`);
+
+  const beforeModules = new Set(
+    before.environments.flatMap((env) => env.modules.map((module) => `${env.name}/${module.name}`))
+  );
+  const afterModules = new Set(
+    after.environments.flatMap((env) => env.modules.map((module) => `${env.name}/${module.name}`))
+  );
+  const addedModules = [...afterModules].filter((name) => !beforeModules.has(name));
+  const removedModules = [...beforeModules].filter((name) => !afterModules.has(name));
+  if (addedModules.length > 0) parts.push(`Added modules: ${addedModules.join(", ")}`);
+  if (removedModules.length > 0) parts.push(`Removed modules: ${removedModules.join(", ")}`);
+
+  if (parts.length === 0) {
+    parts.push(`No structural changes. Current structure: ${getTemplateStructureSummary(after)}.`);
+  }
+
+  return parts.join(". ");
+};
+
 export default function TemplateManagementTab() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,6 +189,18 @@ export default function TemplateManagementTab() {
       return;
     }
 
+    const changeSummary = buildTemplateChangeSummary(editingTemplate, formData);
+    const reasonInput = window.prompt(
+      `Please provide a reason to ${editingTemplate ? "update" : "create"} this project template.\n\nChanges:\n${changeSummary}`
+    );
+    if (reasonInput === null) return;
+
+    const reason = reasonInput.trim();
+    if (!reason) {
+      alert("Reason is required.");
+      return;
+    }
+
     try {
       const url = editingTemplate
         ? `http://localhost:8000/api/templates/${editingTemplate._id}`
@@ -141,7 +211,11 @@ export default function TemplateManagementTab() {
       const res = await authFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          reason,
+          changeSummary
+        })
       });
 
       if (res.ok) {
@@ -160,11 +234,31 @@ export default function TemplateManagementTab() {
   };
 
   const deleteTemplate = async (id: string) => {
+    const templateToDelete = templates.find((template) => template._id === id);
+    if (!templateToDelete) {
+      alert("Template not found");
+      return;
+    }
+
+    const changeSummary = `Deleting template "${templateToDelete.name}" with ${getTemplateStructureSummary(templateToDelete)}.`;
+    const reasonInput = window.prompt(
+      `Please provide a reason to delete this project template.\n\nChanges:\n${changeSummary}`
+    );
+    if (reasonInput === null) return;
+
+    const reason = reasonInput.trim();
+    if (!reason) {
+      alert("Reason is required.");
+      return;
+    }
+
     if (!confirm("Are you sure you want to delete this template?")) return;
 
     try {
       const res = await authFetch(`http://localhost:8000/api/templates/${id}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, changeSummary })
       });
 
       if (res.ok) {
@@ -187,11 +281,23 @@ export default function TemplateManagementTab() {
     };
     delete (newTemplate as any)._id;
 
+    const changeSummary = `Duplicated from "${template.name}" with ${getTemplateStructureSummary(template)}.`;
+    const reasonInput = window.prompt(
+      `Please provide a reason to create this duplicated project template.\n\nChanges:\n${changeSummary}`
+    );
+    if (reasonInput === null) return;
+
+    const reason = reasonInput.trim();
+    if (!reason) {
+      alert("Reason is required.");
+      return;
+    }
+
     try {
       const res = await authFetch("http://localhost:8000/api/templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newTemplate)
+        body: JSON.stringify({ ...newTemplate, reason, changeSummary })
       });
 
       if (res.ok) {

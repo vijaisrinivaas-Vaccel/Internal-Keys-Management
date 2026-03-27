@@ -1,19 +1,19 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { loginRequest, setAccessToken } from "../lib/auth";
 
 interface LoginProps {
   onSuccess: () => void;
-  goToRegister: () => void;
   onInactiveAccount: (email: string) => void;
 }
 
-export default function Login({ onSuccess, goToRegister, onInactiveAccount }: LoginProps) {
+export default function Login({ onSuccess, onInactiveAccount }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -68,6 +68,12 @@ export default function Login({ onSuccess, goToRegister, onInactiveAccount }: Lo
           placeholder="Type your email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              passwordInputRef.current?.focus();
+            }
+          }}
           className="w-full border-b border-gray-300 outline-none py-2 focus:border-purple-500 transition-colors"
         />
       </div>
@@ -75,10 +81,17 @@ export default function Login({ onSuccess, goToRegister, onInactiveAccount }: Lo
       <div className="mb-6 relative">
         <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
         <input
+          ref={passwordInputRef}
           type={showPassword ? "text" : "password"}
           placeholder="Type your password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleLogin();
+            }
+          }}
           className="w-full border-b border-gray-300 outline-none py-2 focus:border-purple-500 transition-colors pr-10"
         />
         <button
@@ -97,16 +110,6 @@ export default function Login({ onSuccess, goToRegister, onInactiveAccount }: Lo
       >
         {loading ? "Logging in..." : "LOGIN"}
       </button>
-
-      <p className="text-center text-sm text-gray-600 mt-6">
-        Don't have an account?{" "}
-        <span
-          className="text-purple-600 font-semibold cursor-pointer hover:text-purple-700 transition"
-          onClick={goToRegister}
-        >
-          Register
-        </span>
-      </p>
     </>
   );
 }

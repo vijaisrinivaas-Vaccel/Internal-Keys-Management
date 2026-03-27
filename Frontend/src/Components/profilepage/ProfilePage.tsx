@@ -13,7 +13,11 @@ export interface ProfileData {
   username: string;
   employeeId: string;
   email: string;
-  role: "user" | "admin" | "superadmin";
+  role: string;
+  roleId: {
+    _id: string;
+    name: string;
+  };
   jobRole?: string;
   jobLevel?: string;
   isActive: boolean;
@@ -137,11 +141,26 @@ export default function ProfilePage({
       return;
     }
 
+    let reason = "";
+    if (editMode) {
+      const enteredReason = window.prompt("Please enter a reason for this update:");
+      if (enteredReason === null) {
+        setIsSaving(false);
+        return;
+      }
+      if (!enteredReason.trim()) {
+        setSaveError("Reason is required for profile updates.");
+        setIsSaving(false);
+        return;
+      }
+      reason = enteredReason.trim();
+    }
+
     try {
       const res = await authFetch(`${API_BASE_URL}/users/${form._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, reason }),
       });
 
       const data = await res.json();

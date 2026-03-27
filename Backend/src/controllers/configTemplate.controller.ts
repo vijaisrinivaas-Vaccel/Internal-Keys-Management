@@ -1,6 +1,38 @@
 import { Request, Response } from "express";
 import ConfigTemplate from "../models/ConfigTemplate.model";
 import mongoose from "mongoose";
+import { logAudit } from "../middlewares/auditLogger";
+
+const buildConfigSummary = (configs: any[] = []) =>
+  `${configs.length} keys: ${configs.map((config) => config.key).join(", ")}`;
+
+const buildConfigDiffSummary = (beforeConfigs: any[] = [], afterConfigs: any[] = []) => {
+  const beforeMap = new Map(beforeConfigs.map((config) => [config.key, config]));
+  const afterMap = new Map(afterConfigs.map((config) => [config.key, config]));
+
+  const added = [...afterMap.keys()].filter((key) => !beforeMap.has(key));
+  const removed = [...beforeMap.keys()].filter((key) => !afterMap.has(key));
+
+  const changed: string[] = [];
+  for (const [key, afterConfig] of afterMap.entries()) {
+    const beforeConfig = beforeMap.get(key);
+    if (!beforeConfig) continue;
+
+    if (
+      beforeConfig.value !== afterConfig.value ||
+      (beforeConfig.description || "") !== (afterConfig.description || "")
+    ) {
+      changed.push(key);
+    }
+  }
+
+  const parts: string[] = [];
+  if (added.length > 0) parts.push(`Added keys: ${added.join(", ")}`);
+  if (removed.length > 0) parts.push(`Removed keys: ${removed.join(", ")}`);
+  if (changed.length > 0) parts.push(`Updated keys: ${changed.join(", ")}`);
+
+  return parts.length > 0 ? parts.join(". ") : "No config key changes.";
+};
 
 /* ================= GET ALL TEMPLATES ================= */
 export const getAllConfigTemplates = async (req: Request, res: Response) => {
@@ -34,7 +66,7 @@ export const getConfigTemplateById = async (req: Request, res: Response) => {
 /* ================= CREATE TEMPLATE ================= */
 export const createConfigTemplate = async (req: Request, res: Response) => {
   try {
-    const { name, description, configs } = req.body;
+    const { name, description, configs, reason, changeSummary } = req.body;
     const user = (req as any).user;
 
     if (!name) {
@@ -60,6 +92,21 @@ export const createConfigTemplate = async (req: Request, res: Response) => {
       version: 1
     });
 
+    logAudit({
+      category: "admin",
+      action: "CREATE_CONFIG_TEMPLATE",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(template._id),
+      details: `Created config template "${template.name}"`,
+      metadata: {
+        templateName: template.name,
+        reason: reason || null,
+        changeSummary: changeSummary || `Created template with ${buildConfigSummary(configs)}`
+      },
+      req,
+    });
+
     res.status(201).json(template);
   } catch (err) {
     console.error("CREATE CONFIG TEMPLATE ERROR:", err);
@@ -71,7 +118,7 @@ export const createConfigTemplate = async (req: Request, res: Response) => {
 export const updateConfigTemplate = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, configs } = req.body;
+    const { name, description, configs, reason, changeSummary } = req.body;
     const user = (req as any).user;
 
     const template = await ConfigTemplate.findById(id);
@@ -87,6 +134,10 @@ export const updateConfigTemplate = async (req: Request, res: Response) => {
       }
     }
 
+    const previousConfigs = [...(template.configs || [])];
+    const previousName = template.name;
+    const previousDescription = template.description || "";
+
     template.name = name || template.name;
     template.description = description !== undefined ? description : template.description;
     template.configs = configs || template.configs;
@@ -95,6 +146,32 @@ export const updateConfigTemplate = async (req: Request, res: Response) => {
     template.updatedByName = user.username;
 
     await template.save();
+
+    const summaryParts: string[] = [];
+    if (previousName !== template.name) {
+      summaryParts.push(`Name: "${previousName}" -> "${template.name}"`);
+    }
+    if (previousDescription !== (template.description || "")) {
+      summaryParts.push("Description updated");
+    }
+    summaryParts.push(buildConfigDiffSummary(previousConfigs as any[], template.configs as any[]));
+
+    logAudit({
+      category: "admin",
+      action: "UPDATE_CONFIG_TEMPLATE",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(template._id),
+      details: `Updated config template "${template.name}"`,
+      metadata: {
+        templateName: template.name,
+        version: template.version,
+        reason: reason || null,
+        changeSummary: changeSummary || summaryParts.join(". ")
+      },
+      req,
+    });
+
     res.json(template);
   } catch (err) {
     console.error("UPDATE CONFIG TEMPLATE ERROR:", err);
@@ -106,8 +183,30 @@ export const updateConfigTemplate = async (req: Request, res: Response) => {
 export const deleteConfigTemplate = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const { reason, changeSummary } = req.body || {};
+    const user = (req as any).user;
+    const template = await ConfigTemplate.findById(id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
     
     await ConfigTemplate.findByIdAndDelete(id);
+
+    logAudit({
+      category: "admin",
+      action: "DELETE_CONFIG_TEMPLATE",
+      userId: String(user?.id || "system"),
+      userName: user?.username || "System",
+      targetId: String(id),
+      details: `Deleted config template "${template.name}"`,
+      metadata: {
+        templateName: template.name,
+        reason: reason || null,
+        changeSummary: changeSummary || `Deleted template with ${buildConfigSummary(template.configs as any[])}`
+      },
+      req,
+    });
+
     res.json({ message: "Template deleted successfully" });
   } catch (err) {
     console.error(err);
@@ -150,7 +249,7 @@ export const applyTemplateToModule = async (req: Request, res: Response) => {
           updatedAt: new Date()
         }
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     res.json({

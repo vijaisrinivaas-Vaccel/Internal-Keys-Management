@@ -5,6 +5,7 @@ import { ConfigEntry } from "../models/ConfigEntry.model";
 import ProjectUserPermission from "../models/ProjectUserPermission.model";
 import User from "../models/User.model";
 import {Permission , PERMISSIONS} from "../config/accessControl";
+import { logAudit } from "../middlewares/auditLogger";
 
 /* ================= CHECK ENVIRONMENT PERMISSION ================= */
 const checkEnvironmentPermission = async (
@@ -13,8 +14,9 @@ const checkEnvironmentPermission = async (
   environmentId: string,
   requiredPermission: Permission  
 ): Promise<boolean> => {
-  const user = await User.findById(userId);
-  if (user?.role === "superadmin") return true;
+  const user = await User.findById(userId).populate("roleId");
+  const roleName = (user?.roleId as any)?.name || "user";
+  if (roleName === "superadmin") return true;
 
   const permission = await ProjectUserPermission.findOne({
     projectId,
@@ -48,7 +50,7 @@ export const createEnvironment = async (req: Request, res: Response) => {
     }
 
     // Check if user has permission to create environment
-    if (user.role !== "superadmin") {
+    if (user.roleName !== "superadmin") {
       const hasPermission = await checkEnvironmentPermission(
         user.id,
         projectId,
@@ -74,6 +76,22 @@ export const createEnvironment = async (req: Request, res: Response) => {
       createdByName: user.username,
     });
 
+    logAudit({
+      category: "activity",
+      action: "CREATE_ENVIRONMENT",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(env._id),
+      details: `Created environment "${env.name}"`,
+      metadata: {
+        projectId,
+        environmentId: String(env._id),
+        environmentName: env.name,
+        changeSummary: `Created environment "${env.name}"`,
+      },
+      req,
+    });
+
     res.status(201).json(env);
   } catch (err) {
     console.error("CREATE ENVIRONMENT ERROR:", err);
@@ -95,7 +113,7 @@ export const getEnvironments = async (req: Request, res: Response) => {
     const allEnvs = await Environment.find({ projectId });
 
     // Superadmin sees all
-    if (user.role === "superadmin") {
+    if (user.roleName === "superadmin") {
       return res.json(allEnvs);
     }
 
@@ -148,7 +166,7 @@ export const updateEnvironment = async (req: Request, res: Response) => {
     }
 
     // Check permission
-      if (user.role !== "superadmin") {
+      if (user.roleName !== "superadmin") {
       const hasPermission = await checkEnvironmentPermission(
         user.id,
         environment.projectId.toString(),
@@ -164,8 +182,32 @@ export const updateEnvironment = async (req: Request, res: Response) => {
     const updated = await Environment.findByIdAndUpdate(
       id,
       { name },
-      { new: true }
+      { returnDocument: 'after' }
     );
+
+    const previousName = environment.name;
+    const nextName = updated?.name || name || previousName;
+    const changeSummary =
+      previousName !== nextName
+        ? `Renamed environment from "${previousName}" to "${nextName}"`
+        : `Updated environment "${nextName}"`;
+
+    logAudit({
+      category: "activity",
+      action: "UPDATE_ENVIRONMENT",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(updated?._id || environmentId),
+      details: `Updated environment "${nextName}"`,
+      metadata: {
+        projectId: String(environment.projectId),
+        environmentId: String(updated?._id || environmentId),
+        previousName,
+        nextName,
+        changeSummary,
+      },
+      req,
+    });
 
     res.json(updated);
   } catch (err) {
@@ -193,7 +235,7 @@ export const deleteEnvironment = async (req: Request, res: Response) => {
     const environmentId = Array.isArray(id) ? id[0] : id;
 
     // Check permission
-    if (user.role !== "superadmin") {
+    if (user.roleName !== "superadmin") {
       const hasPermission = await checkEnvironmentPermission(
         user.id,
         environment.projectId.toString(),
@@ -231,6 +273,22 @@ export const deleteEnvironment = async (req: Request, res: Response) => {
 
     // Delete the environment
     await Environment.findByIdAndDelete(id);
+
+    logAudit({
+      category: "activity",
+      action: "DELETE_ENVIRONMENT",
+      userId: String(user.id),
+      userName: user.username || "Unknown",
+      targetId: String(environment._id),
+      details: `Deleted environment "${environment.name}"`,
+      metadata: {
+        projectId: String(environment.projectId),
+        environmentId: String(environment._id),
+        environmentName: environment.name,
+        changeSummary: `Deleted environment "${environment.name}"`,
+      },
+      req,
+    });
 
     res.json({ message: "Environment deleted successfully" });
   } catch (err) {

@@ -23,7 +23,6 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
         {page === "login" && (
           <Login
             onSuccess={onLoginSuccess}
-            goToRegister={() => setPage("register")}
             onInactiveAccount={handleInactiveAccount}
           />
         )}

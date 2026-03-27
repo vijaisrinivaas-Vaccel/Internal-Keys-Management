@@ -1,7 +1,8 @@
 // hooks/usePermissions.ts
 import { useEffect, useState, useCallback } from "react";
 import { authFetch } from "../../lib/auth";
-import { PERMISSIONS } from "../../lib/permissions";
+import { PERMISSIONS, hasPermission as hasGlobalPermission } from "../../lib/permissions";
+import type { User } from "../../userModel/User";
 
 interface PermissionCheck {
   hasPermission: (permission: string, envId?: string, moduleId?: string, configId?: string) => boolean;
@@ -13,11 +14,60 @@ interface PermissionCheck {
   isAuthenticated: boolean;
 }
 
+const PROJECT_SCOPED_PERMISSIONS = new Set<string>([
+  PERMISSIONS.READ_PROJECT,
+  PERMISSIONS.ASSIGN_USER,
+  PERMISSIONS.ASSIGN_ADMIN,
+  PERMISSIONS.MANAGE_USERS,
+  PERMISSIONS.CREATE_ENVIRONMENT,
+  PERMISSIONS.READ_ENVIRONMENT,
+  PERMISSIONS.UPDATE_ENVIRONMENT,
+  PERMISSIONS.DELETE_ENVIRONMENT,
+  PERMISSIONS.CREATE_MODULE,
+  PERMISSIONS.READ_MODULE,
+  PERMISSIONS.UPDATE_MODULE,
+  PERMISSIONS.DELETE_MODULE,
+  PERMISSIONS.CREATE_CONFIG,
+  PERMISSIONS.READ_CONFIG,
+  PERMISSIONS.UPDATE_CONFIG,
+  PERMISSIONS.DELETE_CONFIG
+]);
+
+const PROJECT_MEMBERSHIP_PERMISSIONS = new Set<string>([
+  PERMISSIONS.READ_PROJECT,
+  PERMISSIONS.ASSIGN_USER,
+  PERMISSIONS.ASSIGN_ADMIN,
+  PERMISSIONS.MANAGE_USERS
+]);
+
+const getStoredUser = (): User | null => {
+  const rawUser = localStorage.getItem("user");
+  if (!rawUser) return null;
+  try {
+    return JSON.parse(rawUser) as User;
+  } catch {
+    return null;
+  }
+};
+
+const hasPermissionInProjectTree = (permission: string, environments: any[] = []) => {
+  return environments.some((env) => {
+    if (env.permissions?.includes(permission)) return true;
+    if (!Array.isArray(env.modules)) return false;
+
+    return env.modules.some((mod: any) => {
+      if (mod.permissions?.includes(permission)) return true;
+      if (!Array.isArray(mod.configEntries)) return false;
+      return mod.configEntries.some((conf: any) => conf.permissions?.includes(permission));
+    });
+  });
+};
+
 export const usePermissions = (
   projectId: string,
   environmentId?: string,
   moduleId?: string,
-  configId?: string
+  _configId?: string
 ): PermissionCheck => {
   const [userPermissions, setUserPermissions] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -28,16 +78,15 @@ export const usePermissions = (
     const fetchPermissions = async () => {
       setLoading(true);
       try {
-        const storedUser = localStorage.getItem("user");
+        const user = getStoredUser();
 
-        if (!storedUser) {
+        if (!user) {
           console.error("User not found in localStorage");
           setIsAuthenticated(false);
           setLoading(false);
           return;
         }
 
-        const user = JSON.parse(storedUser);
         setUserRole(user.role);
         setIsAuthenticated(true);
 
@@ -59,7 +108,11 @@ export const usePermissions = (
             setUserPermissions(data);
           } else if (res.status === 404) {
             setUserPermissions({ environments: [] });
+          } else {
+            setUserPermissions({ environments: [] });
           }
+        } else {
+          setUserPermissions({ environments: [] });
         }
       } catch (err) {
         console.error("Error fetching permissions:", err);
@@ -84,14 +137,21 @@ export const usePermissions = (
   ): boolean => {
     if (loading) return false;
     if (!isAuthenticated) return false;
-    
-    // Superadmin has all permissions
+
+    const currentUser = getStoredUser();
+    if (!currentUser) return false;
+
+    // 1) Role/global permission must pass first
+    if (!hasGlobalPermission(currentUser, permission)) return false;
+
+    // 2) Superadmin bypasses project-level scoping
     if (userRole === "superadmin") return true;
 
-    // No permissions found
-    if (!userPermissions || !userPermissions.environments) {
-      return false;
-    }
+    // 3) If this is not project-scoped, role check is enough
+    if (!projectId || !PROJECT_SCOPED_PERMISSIONS.has(permission)) return true;
+
+    const environments = userPermissions?.environments || [];
+    if (environments.length === 0) return false;
 
     // Convert all IDs to strings for comparison
     const envIdStr = envId?.toString();
@@ -100,7 +160,7 @@ export const usePermissions = (
 
     // Check config level first (most specific)
     if (confIdStr && modIdStr && envIdStr) {
-      const env = userPermissions.environments.find(
+      const env = environments.find(
         (e: any) => e.environmentId && e.environmentId.toString() === envIdStr
       );
       if (!env) return false;
@@ -126,7 +186,7 @@ export const usePermissions = (
 
     // Check module level
     if (modIdStr && envIdStr) {
-      const env = userPermissions.environments.find(
+      const env = environments.find(
         (e: any) => e.environmentId && e.environmentId.toString() === envIdStr
       );
       if (!env) return false;
@@ -141,22 +201,20 @@ export const usePermissions = (
 
     // Check environment level
     if (envIdStr) {
-      const env = userPermissions.environments.find(
+      const env = environments.find(
         (e: any) => e.environmentId && e.environmentId.toString() === envIdStr
       );
       return env?.permissions?.includes(permission) || false;
     }
 
-    // Check project level (CREATE_ENVIRONMENT, READ_ENVIRONMENT)
-    if (permission === PERMISSIONS.CREATE_ENVIRONMENT ||
-        permission === PERMISSIONS.READ_ENVIRONMENT) {
-      return userPermissions.environments.some((env: any) =>
-        env.permissions?.includes(permission)
-      );
+    // Project membership check for high-level project actions
+    if (PROJECT_MEMBERSHIP_PERMISSIONS.has(permission)) {
+      return environments.length > 0;
     }
 
-    return false;
-  }, [userPermissions, userRole, isAuthenticated, loading]);
+    // Generic fallback in project permission tree
+    return hasPermissionInProjectTree(permission, environments);
+  }, [userPermissions, userRole, isAuthenticated, loading, projectId]);
 
   const canAccessEnvironment = useCallback((envId: string, permission?: string): boolean => {
     if (!envId) return false;

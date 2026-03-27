@@ -6,13 +6,16 @@ import {
   Square,
   FolderTree,
   FileText,
+  Users,
+  Settings,
+  Key,
+  Eye,
   Plus,
   Edit,
-  Trash2,
-  Eye
+  Trash2
 } from "lucide-react";
 import type { SelectedPermissions } from "./AssignProject";
-import AccessToggle from "../../../Components/common/AccessToggle";
+import { IOSSwitch } from "../../../Components/ui/ToggleSwitch";
 
 interface User {
   _id: string;
@@ -49,10 +52,12 @@ interface UserSelectionPanelProps {
   onToggleUserSelection: (userId: string) => void;
   onToggleUserExpand: (userId: string) => void;
   onUpdateUserPermissions: (userId: string, newPermissions: SelectedPermissions) => void;
-  currentUserRole?: string; // Add this prop
+  currentUserRole?: string;
+  canAssignUsers?: boolean;
+  canAssignAdmins?: boolean;
 }
 
-// Role-based permission presets (unchanged)
+// Role-based permission presets
 const ROLE_PRESETS = {
   admin: {
     environment: {
@@ -141,13 +146,14 @@ export default function UserSelectionPanel({
   onToggleUserSelection,
   onToggleUserExpand,
   onUpdateUserPermissions,
-  currentUserRole = "admin" // Default to admin
+  currentUserRole = "admin",
+  canAssignUsers = true,
+  canAssignAdmins = false
 }: UserSelectionPanelProps) {
   const [expandedEnvironments, setExpandedEnvironments] = useState<Record<string, boolean>>({});
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
   const [selectedRolePreset, setSelectedRolePreset] = useState<Record<string, string>>({});
 
-  // Initialize permissions for new users (showing all environments/modules/configs)
   useEffect(() => {
     selectedUsers.forEach(userId => {
       if (!userPermissions[userId]) {
@@ -162,7 +168,6 @@ export default function UserSelectionPanel({
     };
 
     environments.forEach(env => {
-      // Initialize environment with all permissions set to false
       initialPermissions.environments[env._id] = {
         selected: false,
         permissions: {
@@ -174,7 +179,6 @@ export default function UserSelectionPanel({
         modules: {}
       };
 
-      // Initialize modules for this environment
       env.modules.forEach(module => {
         initialPermissions.environments[env._id].modules[module._id] = {
           selected: false,
@@ -188,7 +192,6 @@ export default function UserSelectionPanel({
           configs: {}
         };
 
-        // Initialize configs for this module
         module.configEntries?.forEach(config => {
           initialPermissions.environments[env._id].modules[module._id].configs[config._id] = {
             selected: false,
@@ -220,40 +223,50 @@ export default function UserSelectionPanel({
   };
 
   const toggleEnvironment = (userId: string, envId: string) => {
-    const newPermissions = { ...userPermissions[userId] };
-    if (newPermissions.environments[envId]) {
-      const newSelected = !newPermissions.environments[envId].selected;
-      newPermissions.environments[envId].selected = newSelected;
-
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
+    const env = newPermissions.environments[envId];
+    if (env) {
+      const newSelected = !env.selected;
+      env.selected = newSelected;
       if (newSelected) {
-        newPermissions.environments[envId].permissions.READ_ENVIRONMENT = true;
+        env.permissions.READ_ENVIRONMENT = true;
+      } else {
+        Object.keys(env.modules).forEach((modId: string) => {
+          const module = env.modules[modId];
+          module.selected = false;
+          Object.keys(module.configs).forEach((confId: string) => {
+            module.configs[confId].selected = false;
+          });
+        });
       }
     }
     onUpdateUserPermissions(userId, newPermissions);
   };
 
   const toggleModule = (userId: string, envId: string, moduleId: string) => {
-    const newPermissions = { ...userPermissions[userId] };
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
     const module = newPermissions.environments[envId]?.modules[moduleId];
     if (module) {
       const newSelected = !module.selected;
       module.selected = newSelected;
-
       if (newSelected) {
         module.permissions.READ_MODULE = true;
         module.accessAll = true;
+      } else {
+        Object.keys(module.configs).forEach((confId: string) => {
+          module.configs[confId].selected = false;
+        });
       }
     }
     onUpdateUserPermissions(userId, newPermissions);
   };
 
   const toggleConfig = (userId: string, envId: string, moduleId: string, configId: string) => {
-    const newPermissions = { ...userPermissions[userId] };
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
     const config = newPermissions.environments[envId]?.modules[moduleId]?.configs[configId];
     if (config) {
       const newSelected = !config.selected;
       config.selected = newSelected;
-
       if (newSelected) {
         config.permissions.READ_CONFIG = true;
       }
@@ -262,7 +275,7 @@ export default function UserSelectionPanel({
   };
 
   const toggleAccessAll = (userId: string, envId: string, moduleId: string, value: boolean) => {
-    const newPermissions = { ...userPermissions[userId] };
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
     const module = newPermissions.environments[envId]?.modules[moduleId];
     if (module) {
       module.accessAll = value;
@@ -275,10 +288,25 @@ export default function UserSelectionPanel({
     envId: string,
     permission: string
   ) => {
-    const newPermissions = { ...userPermissions[userId] };
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
     const env = newPermissions.environments[envId];
     if (env) {
-      env.permissions[permission] = !env.permissions[permission];
+      const isReadPermission = permission === "READ_ENVIRONMENT";
+      const newValue = !env.permissions[permission];
+      
+      env.permissions[permission] = newValue;
+      
+      if (!isReadPermission && newValue) {
+        env.permissions.READ_ENVIRONMENT = true;
+      }
+      
+      if (isReadPermission && !newValue) {
+        Object.keys(env.permissions).forEach(key => {
+          if (key !== "READ_ENVIRONMENT") {
+            env.permissions[key] = false;
+          }
+        });
+      }
     }
     onUpdateUserPermissions(userId, newPermissions);
   };
@@ -289,10 +317,25 @@ export default function UserSelectionPanel({
     moduleId: string,
     permission: string
   ) => {
-    const newPermissions = { ...userPermissions[userId] };
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
     const module = newPermissions.environments[envId]?.modules[moduleId];
     if (module) {
-      module.permissions[permission] = !module.permissions[permission];
+      const isReadPermission = permission === "READ_MODULE";
+      const newValue = !module.permissions[permission];
+      
+      module.permissions[permission] = newValue;
+      
+      if (!isReadPermission && newValue) {
+        module.permissions.READ_MODULE = true;
+      }
+      
+      if (isReadPermission && !newValue) {
+        Object.keys(module.permissions).forEach(key => {
+          if (key !== "READ_MODULE") {
+            module.permissions[key] = false;
+          }
+        });
+      }
     }
     onUpdateUserPermissions(userId, newPermissions);
   };
@@ -304,104 +347,145 @@ export default function UserSelectionPanel({
     configId: string,
     permission: string
   ) => {
-    const newPermissions = { ...userPermissions[userId] };
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
     const config = newPermissions.environments[envId]?.modules[moduleId]?.configs[configId];
     if (config) {
-      config.permissions[permission] = !config.permissions[permission];
+      const isReadPermission = permission === "READ_CONFIG";
+      const newValue = !config.permissions[permission];
+      
+      config.permissions[permission] = newValue;
+      
+      if (!isReadPermission && newValue) {
+        config.permissions.READ_CONFIG = true;
+      }
+      
+      if (isReadPermission && !newValue) {
+        Object.keys(config.permissions).forEach(key => {
+          if (key !== "READ_CONFIG") {
+            config.permissions[key] = false;
+          }
+        });
+      }
     }
     onUpdateUserPermissions(userId, newPermissions);
   };
 
   const toggleSelectAllEnvironments = (userId: string) => {
-    const newPermissions = { ...userPermissions[userId] };
-    const allSelected = Object.values(newPermissions.environments).every(env => env.selected);
-
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
+    const allSelected = Object.values(newPermissions.environments).every((env: any) => env.selected);
     Object.keys(newPermissions.environments).forEach(envId => {
       newPermissions.environments[envId].selected = !allSelected;
       if (!allSelected) {
         newPermissions.environments[envId].permissions.READ_ENVIRONMENT = true;
       }
     });
-
     onUpdateUserPermissions(userId, newPermissions);
   };
 
   const toggleSelectAllModules = (userId: string, envId: string) => {
-    const newPermissions = { ...userPermissions[userId] };
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
     const env = newPermissions.environments[envId];
-    const allSelected = Object.values(env.modules).every(mod => mod.selected);
-
+    const allSelected = Object.values(env.modules).every((mod: any) => mod.selected);
     Object.keys(env.modules).forEach(moduleId => {
       env.modules[moduleId].selected = !allSelected;
       if (!allSelected) {
         env.modules[moduleId].permissions.READ_MODULE = true;
       }
     });
-
     onUpdateUserPermissions(userId, newPermissions);
   };
 
   const toggleSelectAllConfigs = (userId: string, envId: string, moduleId: string) => {
-    const newPermissions = { ...userPermissions[userId] };
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
     const module = newPermissions.environments[envId]?.modules[moduleId];
-
     if (!module || !module.configs) return;
-
-    const allSelected = Object.values(module.configs).every(config => config.selected);
-
+    const allSelected = Object.values(module.configs).every((config: any) => config.selected);
     Object.keys(module.configs).forEach(configId => {
       module.configs[configId].selected = !allSelected;
       if (!allSelected) {
         module.configs[configId].permissions.READ_CONFIG = true;
       }
     });
-
     onUpdateUserPermissions(userId, newPermissions);
   };
 
   const applyRolePreset = (userId: string, presetRole: string) => {
     setSelectedRolePreset(prev => ({ ...prev, [userId]: presetRole }));
-
     const preset = ROLE_PRESETS[presetRole as keyof typeof ROLE_PRESETS];
     if (!preset) return;
-
-    const newPermissions = { ...userPermissions[userId] };
-
+    const newPermissions = JSON.parse(JSON.stringify(userPermissions[userId]));
     Object.keys(newPermissions.environments).forEach(envId => {
       const env = newPermissions.environments[envId];
       env.permissions = { ...preset.environment };
-
       Object.keys(env.modules).forEach(moduleId => {
         const module = env.modules[moduleId];
         module.permissions = { ...preset.module };
-
         Object.keys(module.configs).forEach(configId => {
           const config = module.configs[configId];
           config.permissions = { ...preset.config };
         });
       });
     });
-
     onUpdateUserPermissions(userId, newPermissions);
   };
 
-  // Check if current user can assign permissions
-  const canAssign = currentUserRole === "superadmin" || currentUserRole === "admin";
+  const canAssign = canAssignUsers;
+  const isSuperAdmin = currentUserRole === "superadmin" || canAssignAdmins;
+
+  const permissionOptions = {
+    environment: [
+      { key: "CREATE_MODULE", label: "Create Module", icon: Plus },
+      { key: "READ_ENVIRONMENT", label: "Read", icon: Eye },
+      { key: "UPDATE_ENVIRONMENT", label: "Update", icon: Edit },
+      { key: "DELETE_ENVIRONMENT", label: "Delete", icon: Trash2 }
+    ],
+    module: [
+      { key: "CREATE_CONFIG", label: "Create Config", icon: Plus },
+      { key: "READ_MODULE", label: "Read", icon: Eye },
+      { key: "UPDATE_MODULE", label: "Update", icon: Edit },
+      { key: "DELETE_MODULE", label: "Delete", icon: Trash2 }
+    ],
+    config: [
+      { key: "READ_CONFIG", label: "Read", icon: Eye },
+      { key: "UPDATE_CONFIG", label: "Update", icon: Edit },
+      { key: "DELETE_CONFIG", label: "Delete", icon: Trash2 }
+    ]
+  };
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl shadow p-5">
-        <h2 className="text-lg font-semibold mb-4">Select Users</h2>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+        {/* Header with gradient accent */}
+        <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-md">
+              <Users size={20} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Select Users</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Choose users to assign permissions</p>
+            </div>
+          </div>
+          <div className="bg-blue-50 px-3 py-1.5 rounded-full shadow-sm">
+            <span className="text-sm font-semibold text-blue-600">{selectedUsers.length} selected</span>
+          </div>
+        </div>
 
         {users.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No users available</p>
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users size={28} className="text-gray-400" />
+            </div>
+            <p className="text-gray-500 font-medium">No users available</p>
+            <p className="text-xs text-gray-400 mt-1">Add users to get started</p>
+          </div>
         ) : (
-          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
             {users.map((user) => (
-              <div key={user._id} className="border border-gray-200 rounded-lg overflow-hidden">
+              <div key={user._id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all duration-200 group">
                 {/* User Header */}
                 <div
-                  className="flex items-center px-4 py-3 hover:bg-gray-50 cursor-pointer bg-white"
+                  className="flex items-center px-5 py-4 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-transparent cursor-pointer bg-white transition-all"
                   onClick={() => onToggleUserExpand(user._id)}
                 >
                   <button
@@ -409,43 +493,58 @@ export default function UserSelectionPanel({
                       e.stopPropagation();
                       onToggleUserSelection(user._id);
                     }}
-                    className="mr-3"
+                    className="mr-4 flex-shrink-0"
                     disabled={!canAssign}
                   >
                     {selectedUsers.includes(user._id) ? (
-                      <CheckSquare className={`${canAssign ? "text-blue-600" : "text-gray-400"}`} size={22} />
+                      <CheckSquare className={`${canAssign ? "text-blue-600" : "text-gray-400"} transition-all`} size={22} />
                     ) : (
                       <Square className={`${canAssign ? "text-gray-400" : "text-gray-300"}`} size={22} />
                     )}
                   </button>
-                  <div className="flex-1">
-                    <div className="font-semibold text-base">
-                      {user.firstname} {user.lastname}
-                      <span className="ml-2 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                        {user.role}
+                  
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                      <span className="text-white text-sm font-bold">
+                        {user.firstname?.charAt(0).toUpperCase()}{user.lastname?.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <div className="text-sm text-gray-500">{user.email}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-gray-800">
+                          {user.firstname} {user.lastname}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          user.role === "admin" ? "bg-blue-100 text-blue-700" :
+                          user.role === "superadmin" ? "bg-purple-100 text-purple-700" :
+                          "bg-gray-100 text-gray-700"
+                        }`}>
+                          {user.role}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">{user.email}</div>
+                    </div>
                   </div>
+                  
                   {expandedUsers[user._id] ? (
-                    <ChevronDown size={20} className="text-gray-400" />
+                    <ChevronDown size={20} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
                   ) : (
-                    <ChevronRight size={20} className="text-gray-400" />
+                    <ChevronRight size={20} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
                   )}
                 </div>
 
                 {/* Permissions Panel */}
                 {expandedUsers[user._id] && selectedUsers.includes(user._id) && (
-                  <div className="border-t border-gray-200 p-4 bg-gray-50">
+                  <div className="border-t border-gray-100 p-5 bg-gradient-to-br from-gray-50 to-white">
                     {/* Role Preset Dropdown */}
-                    <div className="mb-5">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="mb-6">
+                      <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
                         Quick Role Preset
                       </label>
                       <select
                         value={selectedRolePreset[user._id] || ""}
                         onChange={(e) => applyRolePreset(user._id, e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       >
                         <option value="">Custom Configuration</option>
                         <option value="admin">Admin (Full Access without Delete)</option>
@@ -455,12 +554,12 @@ export default function UserSelectionPanel({
                       </select>
                     </div>
 
-                    {/* Global Select All Button - Only show if user can assign */}
+                    {/* Global Select All Button */}
                     {canAssign && (
-                      <div className="mb-4 flex justify-end">
+                      <div className="mb-5 flex justify-end">
                         <button
                           onClick={() => toggleSelectAllEnvironments(user._id)}
-                          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                          className="px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-md transition-all font-medium"
                         >
                           {Object.values(userPermissions[user._id]?.environments || {}).every(e => e.selected)
                             ? "Deselect All Environments"
@@ -480,11 +579,10 @@ export default function UserSelectionPanel({
                         const totalModulesCount = allEnvModules.length;
 
                         return (
-                          <div key={env._id} className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+                          <div key={env._id} className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm hover:shadow-md transition-all">
                             {/* Environment Header */}
                             <div
-                              className={`flex items-center px-4 py-3 bg-gray-100 ${envData.selected ? "cursor-pointer hover:bg-gray-200" : "cursor-not-allowed opacity-60"
-                                }`}
+                              className={`flex items-center px-5 py-3 ${envData.selected ? "bg-gradient-to-r from-blue-50/30 to-transparent cursor-pointer hover:bg-blue-50/50" : "bg-gray-50 cursor-not-allowed opacity-70"}`}
                               onClick={() => {
                                 if (envData.selected && canAssign) {
                                   toggleEnvironmentExpand(env._id);
@@ -507,82 +605,66 @@ export default function UserSelectionPanel({
                                   <Square className="text-gray-400" size={20} />
                                 )}
                               </button>
-                              <span className="font-medium text-base flex-1">{env.name}</span>
+                              <FolderTree size={18} className="text-gray-500 mr-2" />
+                              <span className="font-semibold text-gray-800 flex-1">{env.name}</span>
 
-                              {/* Environment Action Buttons - Only show if user can assign */}
-                              {canAssign && (
-                                <div className="flex items-center gap-2 mr-4">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleEnvironmentPermission(user._id, env._id, "CREATE_MODULE");
+                              {/* Permission Checkboxes - Modern Design */}
+                              <div className="flex items-center gap-2 mr-4">
+                                {permissionOptions.environment
+                                  .filter(opt => isSuperAdmin || !opt.key.startsWith("DELETE_"))
+                                  .map((opt) => {
+                                    const isEnabled = envData.permissions[opt.key];
+                                    const isDisabled = !envData.selected || !canAssign;
+                                    const isRead = opt.key === "READ_ENVIRONMENT";
+                                    const isDependentDisabled = !isRead && !envData.permissions.READ_ENVIRONMENT;
+
+                                    return (
+                                      <label
+                                        key={opt.key}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                                          isEnabled && !isDisabled
+                                            ? "bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
+                                            : "bg-white border-gray-200 text-gray-500"
+                                        } ${isDisabled || isDependentDisabled ? "opacity-40 cursor-not-allowed" : "hover:border-blue-300 hover:shadow-sm"}`}
+                                      >
+                                        <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-colors ${
+                                          isEnabled ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300"
+                                        }`}>
+                                          {isEnabled && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
+                                        </div>
+                                        <input
+                                          type="checkbox"
+                                          checked={isEnabled}
+                                          onChange={() => toggleEnvironmentPermission(user._id, env._id, opt.key)}
+                                          disabled={isDisabled || isDependentDisabled}
+                                          className="hidden"
+                                        />
+                                        <span className="text-xs font-medium whitespace-nowrap">{opt.label}</span>
+                                      </label>
+                                    );
+                                  })}
+                              </div>
+
+                              <div className="flex items-center gap-3 mr-4">
+                                <div className="flex flex-col items-end">
+                                  <span className="text-[10px] text-gray-400 font-medium uppercase">All Modules</span>
+                                  <IOSSwitch
+                                    sx={{ m: 1 }}
+                                    checked={Object.values(envData.modules).every(m => m.selected)}
+                                    disabled={!canAssign}
+                                    onChange={() => {
+                                      if (canAssign) {
+                                        toggleSelectAllModules(user._id, env._id);
+                                      }
                                     }}
-                                    disabled={!envData.selected || !envData.permissions.READ_ENVIRONMENT}
-                                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition ${envData.permissions.CREATE_MODULE && envData.selected && envData.permissions.READ_ENVIRONMENT
-                                        ? "bg-green-100 text-green-700 border border-green-300"
-                                        : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-                                      } disabled:opacity-40 disabled:cursor-not-allowed`}
-                                    title="Create Module"
-                                  >
-                                    <Plus size={12} />
-                                    <span className="hidden sm:inline">Module</span>
-                                  </button>
-
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleEnvironmentPermission(user._id, env._id, "READ_ENVIRONMENT");
-                                    }}
-                                    disabled={!envData.selected}
-                                    className={`p-1.5 rounded-md transition ${envData.permissions.READ_ENVIRONMENT && envData.selected
-                                        ? "bg-green-100 text-green-700 border border-green-300"
-                                        : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-                                      } disabled:opacity-40 disabled:cursor-not-allowed`}
-                                    title="Read (Required)"
-                                  >
-                                    <Eye size={14} />
-                                  </button>
-
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleEnvironmentPermission(user._id, env._id, "UPDATE_ENVIRONMENT");
-                                    }}
-                                    disabled={!envData.selected || !envData.permissions.READ_ENVIRONMENT}
-                                    className={`p-1.5 rounded-md transition ${envData.permissions.UPDATE_ENVIRONMENT && envData.selected && envData.permissions.READ_ENVIRONMENT
-                                        ? "bg-green-100 text-green-700 border border-green-300"
-                                        : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-                                      } disabled:opacity-40 disabled:cursor-not-allowed`}
-                                    title="Update"
-                                  >
-                                    <Edit size={14} />
-                                  </button>
-
-                                  {/* Delete button - Only visible to superadmin */}
-                                  {currentUserRole === "superadmin" && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleEnvironmentPermission(user._id, env._id, "DELETE_ENVIRONMENT");
-                                      }}
-                                      disabled={!envData.selected || !envData.permissions.READ_ENVIRONMENT}
-                                      className={`p-1.5 rounded-md transition ${envData.permissions.DELETE_ENVIRONMENT && envData.selected && envData.permissions.READ_ENVIRONMENT
-                                          ? "bg-green-100 text-green-700 border border-green-300"
-                                          : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-                                        } disabled:opacity-40 disabled:cursor-not-allowed`}
-                                      title="Delete"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  )}
+                                  />
                                 </div>
-                              )}
+                                <span className="text-sm font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">
+                                  {selectedModulesCount}/{totalModulesCount}
+                                </span>
+                              </div>
 
-                              <span className="text-sm text-gray-600 mr-4">
-                                {selectedModulesCount}/{totalModulesCount} Modules
-                              </span>
-
-                              {/* Chevron - Only clickable when environment is selected and user can assign */}
                               {envData.selected ? (
                                 expandedEnvironments[env._id] ? (
                                   <ChevronDown
@@ -614,319 +696,244 @@ export default function UserSelectionPanel({
 
                             {/* Environment Expanded Content */}
                             {expandedEnvironments[env._id] && (
-                              <div className="p-4 border-t border-gray-200">
-                                {/* Modules Section */}
-                                <div className="mt-2">
-                                  {/* Module Access Header with Select All */}
-                                  <div className="flex items-center justify-between mb-3">
-                                    <h4 className="text-base font-semibold text-gray-800">MODULES</h4>
-                                    {canAssign && (
-                                      <button
-                                        onClick={() => toggleSelectAllModules(user._id, env._id)}
-                                        className="px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 border border-blue-200"
-                                      >
-                                        {Object.values(envData.modules).every(m => m.selected)
-                                          ? "Deselect All"
-                                          : "Select All"}
-                                      </button>
-                                    )}
-                                  </div>
+                              <div className="p-5 border-t border-gray-100 bg-gray-50/30">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h4 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                                    <Settings size={16} className="text-gray-500" />
+                                    Modules
+                                  </h4>
+                                  {canAssign && (
+                                    <button
+                                      onClick={() => toggleSelectAllModules(user._id, env._id)}
+                                      className="px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200 transition-all"
+                                    >
+                                      {Object.values(envData.modules).every(m => m.selected)
+                                        ? "Deselect All"
+                                        : "Select All"}
+                                    </button>
+                                  )}
+                                </div>
 
-                                  {/* Modules List */}
-                                  <div className="space-y-3">
-                                    {env.modules.map((module) => {
-                                      const moduleData = envData.modules[module._id];
-                                      if (!moduleData) return null;
+                                <div className="space-y-3">
+                                  {env.modules.map((module) => {
+                                    const moduleData = envData.modules[module._id];
+                                    if (!moduleData) return null;
 
-                                      const selectedConfigsCount = Object.values(moduleData.configs).filter(c => c.selected).length;
-                                      const totalConfigsCount = Object.values(moduleData.configs).length;
+                                    const selectedConfigsCount = Object.values(moduleData.configs).filter(c => c.selected).length;
+                                    const totalConfigsCount = Object.values(moduleData.configs).length;
 
-                                      return (
-  <div key={module._id} className="border border-gray-200 rounded-lg overflow-hidden mb-2">
-    {/* Module Header */}
-    <div
-      className={`flex items-center px-4 py-3 ${
-        moduleData.selected 
-          ? "bg-blue-50/50 hover:bg-blue-100/50 cursor-pointer" 
-          : "bg-gray-50 opacity-70 cursor-not-allowed"
-      } transition-colors`}
-      onClick={() => {
-        if (moduleData.selected && canAssign) {
-          toggleModuleExpand(module._id);
-        }
-      }}
-    >
-      {/* Selection Checkbox */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          if (canAssign) {
-            toggleModule(user._id, env._id, module._id);
-          }
-        }}
-        className="mr-3 flex-shrink-0"
-        disabled={!canAssign}
-      >
-        {moduleData.selected ? (
-          <CheckSquare className="text-blue-600" size={20} />
-        ) : (
-          <Square className="text-gray-400" size={20} />
-        )}
-      </button>
+                                    return (
+                                      <div key={module._id} className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+                                        {/* Module Header */}
+                                        <div
+                                          className={`flex items-center px-4 py-3 ${moduleData.selected ? "bg-gradient-to-r from-blue-50/20 to-transparent cursor-pointer hover:bg-blue-50/30" : "bg-gray-50 opacity-70 cursor-not-allowed"}`}
+                                          onClick={() => {
+                                            if (moduleData.selected && canAssign) {
+                                              toggleModuleExpand(module._id);
+                                            }
+                                          }}
+                                        >
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (canAssign) {
+                                                toggleModule(user._id, env._id, module._id);
+                                              }
+                                            }}
+                                            className="mr-3"
+                                            disabled={!canAssign}
+                                          >
+                                            {moduleData.selected ? (
+                                              <CheckSquare className="text-blue-600" size={18} />
+                                            ) : (
+                                              <Square className="text-gray-400" size={18} />
+                                            )}
+                                          </button>
+                                          <FolderTree size={16} className="text-gray-500 mr-2" />
+                                          <span className="font-medium text-gray-800 flex-1">{module.moduleName}</span>
 
-      {/* Module Icon and Name */}
-      <div className="flex items-center flex-1 min-w-0">
-        <FolderTree size={18} className="text-gray-500 mr-2 flex-shrink-0" />
-        <span className="font-medium text-sm truncate">{module.moduleName}</span>
-      </div>
+                                          {/* Module Permission Checkboxes */}
+                                          <div className="flex items-center gap-2 mr-4">
+                                            {permissionOptions.module
+                                              .filter(opt => isSuperAdmin || !opt.key.startsWith("DELETE_"))
+                                              .map((opt) => {
+                                                const isEnabled = moduleData.permissions[opt.key];
+                                                const isDisabled = !moduleData.selected || !canAssign;
+                                                const isRead = opt.key === "READ_MODULE";
+                                                const isDependentDisabled = !isRead && !moduleData.permissions.READ_MODULE;
 
-      {/* Access Toggle (if applicable) */}
-      {moduleData.selected && (
-        <div className="mr-4 flex-shrink-0">
-          <AccessToggle 
-            enabled={moduleData.accessAll} 
-            setEnabled={(val) => {
-              if (canAssign) {
-                toggleAccessAll(user._id, env._id, module._id, val);
-              }
-            }}
-          />
-        </div>
-      )}
+                                                return (
+                                                  <label
+                                                    key={opt.key}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                                                      isEnabled && !isDisabled
+                                                        ? "bg-blue-50 border-blue-200 text-blue-700"
+                                                        : "bg-white border-gray-200 text-gray-500"
+                                                    } ${isDisabled || isDependentDisabled ? "opacity-40 cursor-not-allowed" : "hover:border-blue-300"}`}
+                                                  >
+                                                    <div className={`w-3 h-3 rounded border-2 flex items-center justify-center ${
+                                                      isEnabled ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300"
+                                                    }`}>
+                                                      {isEnabled && <div className="w-1 h-1 bg-white rounded-sm" />}
+                                                    </div>
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={isEnabled}
+                                                      onChange={() => toggleModulePermission(user._id, env._id, module._id, opt.key)}
+                                                      disabled={isDisabled || isDependentDisabled}
+                                                      className="hidden"
+                                                    />
+                                                    <span className="text-xs font-medium whitespace-nowrap">{opt.label}</span>
+                                                  </label>
+                                                );
+                                              })}
+                                          </div>
 
-      {/* Config Count Badge */}
-      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full mr-4 flex-shrink-0">
-        {selectedConfigsCount}/{totalConfigsCount} keys
-      </span>
+                                          {moduleData.selected && (
+                                            <div className="mr-3">
+                                              <span className="text-[10px] text-gray-400 font-medium uppercase">All Configs</span>
+                                              <IOSSwitch
+                                                sx={{ m: 1 }}
+                                                checked={moduleData.accessAll}
+                                                disabled={!canAssign}
+                                                onChange={(e: { target: { checked: boolean; }; }) => {
+                                                  if (canAssign) {
+                                                    toggleAccessAll(user._id, env._id, module._id, e.target.checked);
+                                                  }
+                                                }}
+                                              />
+                                            </div>
+                                          )}
 
-      {/* Action Buttons - Only if canAssign */}
-      {canAssign && (
-        <div className="flex items-center gap-1 mr-4 flex-shrink-0">
-          {/* Create Config Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleModulePermission(user._id, env._id, module._id, "CREATE_CONFIG");
-            }}
-            disabled={!moduleData.selected || !moduleData.permissions.READ_MODULE}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-              moduleData.permissions.CREATE_CONFIG && moduleData.selected && moduleData.permissions.READ_MODULE
-                ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-            } disabled:opacity-40 disabled:cursor-not-allowed`}
-            title="Create Config"
-          >
-            <Plus size={14} />
-            <span className="hidden sm:inline">Config</span>
-          </button>
+                                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full mr-3">
+                                            {selectedConfigsCount}/{totalConfigsCount}
+                                          </span>
 
-          {/* Read Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleModulePermission(user._id, env._id, module._id, "READ_MODULE");
-            }}
-            disabled={!moduleData.selected}
-            className={`p-1.5 rounded-md transition-all ${
-              moduleData.permissions.READ_MODULE && moduleData.selected
-                ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-            } disabled:opacity-40 disabled:cursor-not-allowed`}
-            title="Read (Required)"
-          >
-            <Eye size={16} />
-          </button>
+                                          {moduleData.selected ? (
+                                            moduleData.accessAll ? (
+                                              <div className="w-5" />
+                                            ) : expandedModules[module._id] ? (
+                                              <ChevronDown
+                                                size={16}
+                                                className={`text-gray-500 ${canAssign ? "cursor-pointer" : "cursor-not-allowed"}`}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (canAssign) {
+                                                    toggleModuleExpand(module._id);
+                                                  }
+                                                }}
+                                              />
+                                            ) : (
+                                              <ChevronRight
+                                                size={16}
+                                                className={`text-gray-500 ${canAssign ? "cursor-pointer" : "cursor-not-allowed"}`}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (canAssign) {
+                                                    toggleModuleExpand(module._id);
+                                                  }
+                                                }}
+                                              />
+                                            )
+                                          ) : (
+                                            <ChevronRight size={16} className="text-gray-300 cursor-not-allowed" />
+                                          )}
+                                        </div>
 
-          {/* Update Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleModulePermission(user._id, env._id, module._id, "UPDATE_MODULE");
-            }}
-            disabled={!moduleData.selected || !moduleData.permissions.READ_MODULE}
-            className={`p-1.5 rounded-md transition-all ${
-              moduleData.permissions.UPDATE_MODULE && moduleData.selected && moduleData.permissions.READ_MODULE
-                ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-            } disabled:opacity-40 disabled:cursor-not-allowed`}
-            title="Update"
-          >
-            <Edit size={16} />
-          </button>
+                                        {/* Config Entries */}
+                                        {expandedModules[module._id] && !moduleData.accessAll && (
+                                          <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                                            <div className="flex items-center justify-between mb-3">
+                                              <h5 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <Key size={14} className="text-gray-500" />
+                                                Configuration Keys
+                                              </h5>
+                                              {canAssign && (
+                                                <button
+                                                  onClick={() => toggleSelectAllConfigs(user._id, env._id, module._id)}
+                                                  className="px-2.5 py-1 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-200 transition-all"
+                                                >
+                                                  {Object.values(moduleData.configs).every(c => c.selected)
+                                                    ? "Deselect All"
+                                                    : "Select All"}
+                                                </button>
+                                              )}
+                                            </div>
 
-          {/* Delete Button - Superadmin only */}
-          {currentUserRole === "superadmin" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleModulePermission(user._id, env._id, module._id, "DELETE_MODULE");
-              }}
-              disabled={!moduleData.selected || !moduleData.permissions.READ_MODULE}
-              className={`p-1.5 rounded-md transition-all ${
-                moduleData.permissions.DELETE_MODULE && moduleData.selected && moduleData.permissions.READ_MODULE
-                  ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                  : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-              } disabled:opacity-40 disabled:cursor-not-allowed`}
-              title="Delete"
-            >
-              <Trash2 size={16} />
-            </button>
-          )}
-        </div>
-      )}
+                                            <div className="space-y-2">
+                                              {module.configEntries?.map((config) => {
+                                                const configData = moduleData.configs[config._id];
+                                                if (!configData) return null;
 
-      {/* Expand/Collapse Chevron */}
-      {moduleData.selected ? (
-        moduleData.accessAll ? (
-          <div className="w-5 flex-shrink-0" />
-        ) : expandedModules[module._id] ? (
-          <ChevronDown
-            size={18}
-            className={`text-gray-500 flex-shrink-0 ${
-              canAssign ? "cursor-pointer hover:text-gray-700" : "cursor-not-allowed"
-            }`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (canAssign) {
-                toggleModuleExpand(module._id);
-              }
-            }}
-          />
-        ) : (
-          <ChevronRight
-            size={18}
-            className={`text-gray-500 flex-shrink-0 ${
-              canAssign ? "cursor-pointer hover:text-gray-700" : "cursor-not-allowed"
-            }`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (canAssign) {
-                toggleModuleExpand(module._id);
-              }
-            }}
-          />
-        )
-      ) : (
-        <ChevronRight size={18} className="text-gray-300 cursor-not-allowed flex-shrink-0" />
-      )}
-    </div>
+                                                return (
+                                                  <div key={config._id} className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-gray-100 hover:shadow-sm transition-all">
+                                                    <div className="flex items-center flex-1 min-w-0">
+                                                      <button
+                                                        onClick={() => {
+                                                          if (canAssign) {
+                                                            toggleConfig(user._id, env._id, module._id, config._id);
+                                                          }
+                                                        }}
+                                                        className="mr-3"
+                                                        disabled={!canAssign}
+                                                      >
+                                                        {configData.selected ? (
+                                                          <CheckSquare className="text-blue-600" size={16} />
+                                                        ) : (
+                                                          <Square className="text-gray-400" size={16} />
+                                                        )}
+                                                      </button>
+                                                      <FileText size={14} className="text-gray-500 mr-2" />
+                                                      <span className="text-sm font-mono text-gray-700 truncate">{config.key}</span>
+                                                    </div>
 
-    {/* Expanded Content - Config Entries */}
-    {expandedModules[module._id] && !moduleData.accessAll && (
-      <div className="border-t border-gray-200 bg-gray-50/80 p-4">
-        {module.configEntries && module.configEntries.length > 0 ? (
-          <>
-            {/* Config Header with Select All */}
-            <div className="flex items-center justify-between mb-3">
-              <h5 className="text-sm font-semibold text-gray-700 flex items-center">
-                <FileText size={14} className="mr-2 text-gray-500" />
-                Configuration Keys
-              </h5>
-              {canAssign && (
-                <button
-                  onClick={() => toggleSelectAllConfigs(user._id, env._id, module._id)}
-                  className="px-3 py-1 text-xs bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 border border-blue-200 transition-colors"
-                >
-                  {Object.values(moduleData.configs).every(c => c.selected)
-                    ? "Deselect All"
-                    : "Select All"}
-                </button>
-              )}
-            </div>
+                                                    <div className="flex items-center gap-2">
+                                                      {permissionOptions.config
+                                                        .filter(opt => isSuperAdmin || !opt.key.startsWith("DELETE_"))
+                                                        .map((opt) => {
+                                                          const isEnabled = configData.permissions[opt.key];
+                                                          const isDisabled = !configData.selected || !canAssign;
+                                                          const isRead = opt.key === "READ_CONFIG";
+                                                          const isDependentDisabled = !isRead && !configData.permissions.READ_CONFIG;
 
-            {/* Config Entries List */}
-            <div className="space-y-2">
-              {module.configEntries.map((config) => {
-                const configData = moduleData.configs[config._id];
-                if (!configData) return null;
-
-                return (
-                  <div key={config._id} className="flex items-center justify-between py-1.5 px-3 rounded-md hover:bg-white transition-colors">
-                    {/* Config Info */}
-                    <div className="flex items-center flex-1 min-w-0">
-                      <button
-                        onClick={() => {
-                          if (canAssign) {
-                            toggleConfig(user._id, env._id, module._id, config._id);
-                          }
-                        }}
-                        className="mr-3 flex-shrink-0"
-                        disabled={!canAssign}
-                      >
-                        {configData.selected ? (
-                          <CheckSquare className="text-blue-600" size={16} />
-                        ) : (
-                          <Square className="text-gray-400" size={16} />
-                        )}
-                      </button>
-                      <FileText size={14} className="text-gray-500 mr-2 flex-shrink-0" />
-                      <span className="text-sm font-mono truncate">{config.key}</span>
-                    </div>
-
-                    {/* Config Action Buttons */}
-                    {canAssign && (
-                      <div className="flex items-center gap-1.5 ml-4 flex-shrink-0">
-                        {/* Read Button */}
-                        <button
-                          onClick={() => toggleConfigPermission(user._id, env._id, module._id, config._id, "READ_CONFIG")}
-                          disabled={!configData.selected}
-                          className={`p-1.5 rounded-md transition-all ${
-                            configData.permissions.READ_CONFIG && configData.selected
-                              ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                              : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-                          } disabled:opacity-40 disabled:cursor-not-allowed`}
-                          title="Read"
-                        >
-                          <Eye size={14} />
-                        </button>
-
-                        {/* Update Button */}
-                        <button
-                          onClick={() => toggleConfigPermission(user._id, env._id, module._id, config._id, "UPDATE_CONFIG")}
-                          disabled={!configData.selected || !configData.permissions.READ_CONFIG}
-                          className={`p-1.5 rounded-md transition-all ${
-                            configData.permissions.UPDATE_CONFIG && configData.selected && configData.permissions.READ_CONFIG
-                              ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                              : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-                          } disabled:opacity-40 disabled:cursor-not-allowed`}
-                          title="Update"
-                        >
-                          <Edit size={14} />
-                        </button>
-
-                        {/* Delete Button - Superadmin only */}
-                        {currentUserRole === "superadmin" && (
-                          <button
-                            onClick={() => toggleConfigPermission(user._id, env._id, module._id, config._id, "DELETE_CONFIG")}
-                            disabled={!configData.selected || !configData.permissions.READ_CONFIG}
-                            className={`p-1.5 rounded-md transition-all ${
-                              configData.permissions.DELETE_CONFIG && configData.selected && configData.permissions.READ_CONFIG
-                                ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                                : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-                            } disabled:opacity-40 disabled:cursor-not-allowed`}
-                            title="Delete"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-4 text-gray-500 text-sm">
-            No configuration keys for this module
-          </div>
-        )}
-      </div>
-    )}
-  </div>
-);
-                                    })}
-                                  </div>
+                                                          return (
+                                                            <label
+                                                              key={opt.key}
+                                                              onClick={(e) => e.stopPropagation()}
+                                                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                                                                isEnabled && !isDisabled
+                                                                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                                                                  : "bg-white border-gray-200 text-gray-500"
+                                                              } ${isDisabled || isDependentDisabled ? "opacity-40 cursor-not-allowed" : "hover:border-blue-300"}`}
+                                                            >
+                                                              <div className={`w-3 h-3 rounded border-2 flex items-center justify-center ${
+                                                                isEnabled ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300"
+                                                              }`}>
+                                                                {isEnabled && <div className="w-1 h-1 bg-white rounded-sm" />}
+                                                              </div>
+                                                              <input
+                                                                type="checkbox"
+                                                                checked={isEnabled}
+                                                                onChange={() => toggleConfigPermission(user._id, env._id, module._id, config._id, opt.key)}
+                                                                disabled={isDisabled || isDependentDisabled}
+                                                                className="hidden"
+                                                              />
+                                                              <span className="text-xs font-medium whitespace-nowrap">{opt.label}</span>
+                                                            </label>
+                                                          );
+                                                        })}
+                                                    </div>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}

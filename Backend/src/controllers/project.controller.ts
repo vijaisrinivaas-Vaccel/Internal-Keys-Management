@@ -211,7 +211,7 @@ export const updateProject = async (req: Request, res: Response) => {
     const updated = await Project.findByIdAndUpdate(
       req.params.id,
       updateData,
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updated) {
@@ -288,7 +288,7 @@ export const assignProject = async (req: Request, res: Response) => {
         assignedTo,
         assignedToNames,
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updated) {
