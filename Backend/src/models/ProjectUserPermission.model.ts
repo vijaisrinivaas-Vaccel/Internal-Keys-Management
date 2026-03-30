@@ -24,7 +24,6 @@ export interface ProjectUserPermissionDoc extends Document {
   userId: mongoose.Types.ObjectId;
   environments: EnvironmentPermission[];
   grantedBy: mongoose.Types.ObjectId;
-  grantedByName: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -90,10 +89,6 @@ const projectUserPermissionSchema = new Schema<ProjectUserPermissionDoc>(
     grantedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: true,
-    },
-    grantedByName: {
-      type: String,
       required: true,
     },
   },

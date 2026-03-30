@@ -65,7 +65,7 @@ export const updateUserRole = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { roleId, reason } = req.body;
 
-    const existingUser = await User.findById(id).select("username email roleId");
+    const existingUser = await User.findById(id).select("fullName email roleId");
     if (!existingUser) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -85,9 +85,9 @@ export const updateUserRole = async (req: Request, res: Response) => {
       category: "user",
       action: "UPDATE_USER_ROLE",
       userId: String(currentUser?.id || "system"),
-      userName: currentUser?.username || "System",
+      fullName: currentUser?.fullName || "System",
       targetId: String(id),
-      details: `Changed role for ${existingUser.username || existingUser.email}`,
+      details: `Changed role for ${existingUser.fullName || existingUser.email}`,
       metadata: {
         reason: reason || null,
         previousRoleId: (existingUser as any).roleId,
@@ -124,9 +124,9 @@ export const toggleUserStatus = async (req: Request, res: Response) => {
       category: "user",
       action: user.isActive ? "ACTIVATE_USER" : "DEACTIVATE_USER",
       userId: String(currentUser?.id || id),
-      userName: currentUser?.username || "System",
+      fullName: currentUser?.fullName || "System",
       targetId: String(id),
-      details: `User ${user.username} ${user.isActive ? "activated" : "deactivated"}`,
+      details: `User ${user.fullName} ${user.isActive ? "activated" : "deactivated"}`,
       metadata: { reason: reason || null },
       req,
     });
@@ -169,7 +169,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       employeeId,
       jobRole,
       jobLevel,
-      username,
+      fullName,
       permissions,
       roleId, // Add this if allowed
       reason,
@@ -189,9 +189,9 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       updateData.permissions = permissions;
     }
 
-    // Only superadmin can update username and role
-    if (username !== undefined && isSuperAdmin) {
-      updateData.username = username;
+    // Only superadmin can update fullName and role
+    if (fullName !== undefined && isSuperAdmin) {
+      updateData.fullName = fullName;
     }
     
     if (roleId !== undefined && isSuperAdmin) {
@@ -211,9 +211,9 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       category: "user",
       action: "UPDATE_USER",
       userId: String(requestingUser.id),
-      userName: requestingUser.username || "Unknown",
+      fullName: requestingUser.fullName || "Unknown",
       targetId: String(id),
-      details: `Updated user profile for ${updatedUser?.username || id}`,
+      details: `Updated user profile for ${updatedUser?.fullName || id}`,
       metadata: { updatedFields: Object.keys(updateData), reason: reason || null },
       req,
     });
@@ -246,9 +246,9 @@ export const deleteUser = async (req: Request, res: Response) => {
       category: "user",
       action: "DELETE_USER",
       userId: String(currentUser?.id || "system"),
-      userName: currentUser?.username || "System",
+      fullName: currentUser?.fullName || "System",
       targetId: String(id),
-      details: `Deleted user ${deleted.username || deleted.email}`,
+      details: `Deleted user ${deleted.fullName || deleted.email}`,
       metadata: { reason: reason || null },
       req,
     });

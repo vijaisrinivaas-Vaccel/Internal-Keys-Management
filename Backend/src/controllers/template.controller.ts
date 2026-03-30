@@ -125,7 +125,6 @@ export const createTemplate = async (req: Request, res: Response) => {
       environments: processedEnvironments,
       isGlobal: isGlobal || false,
       createdBy: user.id,
-      createdByName: user.username || "Unknown"
     });
 
     // Audit log: CREATE_TEMPLATE
@@ -133,7 +132,7 @@ export const createTemplate = async (req: Request, res: Response) => {
       category: "admin",
       action: "CREATE_TEMPLATE",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(template._id),
       details: `Created project template "${name}"`,
       metadata: {
@@ -195,7 +194,6 @@ export const updateTemplate = async (req: Request, res: Response) => {
     template.isGlobal = isGlobal !== undefined ? isGlobal : template.isGlobal;
     template.version += 1;
     template.updatedBy = user.id;
-    template.updatedByName = user.username;
 
     await template.save();
 
@@ -204,7 +202,7 @@ export const updateTemplate = async (req: Request, res: Response) => {
       category: "admin",
       action: "UPDATE_TEMPLATE",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(template._id),
       details: `Updated project template "${template.name}"`,
       metadata: {
@@ -257,7 +255,7 @@ export const deleteTemplate = async (req: Request, res: Response) => {
       category: "admin",
       action: "DELETE_TEMPLATE",
       userId: String((req as any).user?.id || "system"),
-      userName: (req as any).user?.username || "System",
+      fullName: (req as any).user?.fullName || "System",
       targetId: String(id),
       details: `Deleted project template "${template.name}"`,
       metadata: {
@@ -278,7 +276,7 @@ export const deleteTemplate = async (req: Request, res: Response) => {
 };
 
 /* ================= APPLY TEMPLATE TO PROJECT ================= */
-export const applyTemplateToProject = async (projectId: string, templateId: string, userId: string, username: string) => {
+export const applyTemplateToProject = async (projectId: string, templateId: string, userId: string, fullName: string) => {
   try {
     const template = await ProjectTemplate.findById(templateId);
     if (!template) {
@@ -291,7 +289,6 @@ export const applyTemplateToProject = async (projectId: string, templateId: stri
         name: envConfig.name,
         projectId: projectId,
         createdBy: userId,
-        createdByName: username,
       });
 
       // Create modules for this environment
@@ -301,7 +298,6 @@ export const applyTemplateToProject = async (projectId: string, templateId: stri
         projectId: projectId,
         environmentId: environment._id,
         createdBy: userId,
-        createdByName: username,
       }));
 
       if (modules.length > 0) {

@@ -6,7 +6,7 @@ import ProfilePage from "../profilepage/ProfilePage";
 import { useTheme } from "../../context/ThemeContext";
 
 interface UserData {
-  username: string;
+  fullName: string;
   role: string;
   firstname?: string;
   lastname?: string;
@@ -139,14 +139,14 @@ export default function Topbar() {
             <div
               className={`w-10 h-10 rounded-full ${roleConfig.badgeBg} text-white flex items-center justify-center font-bold shadow-md`}
             >
-              {user.username[0].toUpperCase()}
+              {user.fullName?.[0]?.toUpperCase() || "?"}
             </div>
 
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-semibold text-gray-800 dark:text-white">
                 {user.firstname && user.lastname
                   ? `${user.firstname} ${user.lastname}`
-                  : user.username}
+                  : user.fullName || "User"}
               </span>
               <span className="text-xs text-gray-500 dark:text-slate-400 truncate">
                 {user.email || "No email"}

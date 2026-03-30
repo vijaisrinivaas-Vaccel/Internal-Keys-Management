@@ -5,7 +5,7 @@ interface AuditParams {
   category: AuditCategory;
   action: string;
   userId: string;
-  userName: string;
+  fullName: string;
   targetId?: string;
   details: string;
   metadata?: Record<string, any>;
@@ -27,7 +27,7 @@ export function logAudit(params: AuditParams): void {
     category: params.category,
     action: params.action,
     userId: String(params.userId),
-    userName: String(params.userName),
+    fullName: String(params.fullName),
     targetId: params.targetId ? String(params.targetId) : undefined,
     details: params.details,
     metadata: params.metadata || {},

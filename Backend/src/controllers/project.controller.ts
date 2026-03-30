@@ -30,24 +30,23 @@ export const createProject = async (req: Request, res: Response) => {
       description,
       uploadedFile: file ? file.path : undefined,
       createdBy: user.id,
-      createdByName: user.username || "Unknown",
       templateId: selectedTemplate?._id,
       templateName: selectedTemplate?.name
     });
 
     // Apply template if selected
     if (selectedTemplate) {
-      await applyTemplateToProject(project._id, selectedTemplate, user.id, user.username);
+      await applyTemplateToProject(project._id, selectedTemplate, user.id, user.fullName);
     } else {
       // Use default template or fallback to hardcoded defaults
       const defaultTemplate = await ProjectTemplate.findOne({ isGlobal: true, isActive: true })
         .sort({ createdAt: -1 });
       
       if (defaultTemplate) {
-        await applyTemplateToProject(project._id, defaultTemplate, user.id, user.username);
+        await applyTemplateToProject(project._id, defaultTemplate, user.id, user.fullName);
       } else {
         // Fallback to hardcoded defaults
-        await createDefaultProjectStructure(project._id, user.id, user.username);
+        await createDefaultProjectStructure(project._id, user.id, user.fullName);
       }
     }
 
@@ -63,14 +62,13 @@ async function applyTemplateToProject(
   projectId: any,
   template: any,
   userId: string,
-  username: string
+  fullName: string
 ) {
   for (const envConfig of template.environments) {
     const environment = await Environment.create({
       name: envConfig.name,
       projectId: projectId,
       createdBy: userId,
-      createdByName: username,
     });
 
     const modules = envConfig.modules.map((moduleConfig: any) => ({
@@ -79,7 +77,6 @@ async function applyTemplateToProject(
       projectId: projectId,
       environmentId: environment._id,
       createdBy: userId,
-      createdByName: username,
     }));
 
     if (modules.length > 0) {
@@ -92,7 +89,7 @@ async function applyTemplateToProject(
 async function createDefaultProjectStructure(
   projectId: any,
   userId: string,
-  username: string
+  fullName: string
 ) {
   const defaultEnvironments = ["Development", "Staging", "UAT", "Production"];
   const defaultModules = ["Database", "Auth Service", "S3 Storage", "Payment Gateway", "Email Service"];
@@ -102,7 +99,6 @@ async function createDefaultProjectStructure(
       name: envName,
       projectId: projectId,
       createdBy: userId,
-      createdByName: username,
     });
 
     const modules = defaultModules.map((moduleName) => ({
@@ -110,7 +106,6 @@ async function createDefaultProjectStructure(
       projectId: projectId,
       environmentId: env._id,
       createdBy: userId,
-      createdByName: username,
     }));
 
     await Module.insertMany(modules);
@@ -121,7 +116,9 @@ async function createDefaultProjectStructure(
 export const getAllProjects = async (req: Request, res: Response) => {
   try {
     const projects = await Project.find()
-      .sort({ createdAt: 1 }) 
+      .sort({ createdAt: 1 })
+      .populate("createdBy", "firstname lastname fullName")
+      .populate("lastEditedBy", "firstname lastname fullName")
       .lean();
 
     return res.json(projects);
@@ -133,7 +130,9 @@ export const getAllProjects = async (req: Request, res: Response) => {
 
 export const getProjectById = async (req: Request, res: Response) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const project = await Project.findById(req.params.id)
+      .populate("createdBy", "firstname lastname fullName")
+      .populate("lastEditedBy", "firstname lastname fullName");
 
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
@@ -155,7 +154,10 @@ export const getProjectsForModule = async (req: Request, res: Response) => {
     }
 
     // 1️⃣ Get all projects
-    const projects = await Project.find().lean();
+    const projects = await Project.find()
+      .populate("createdBy", "firstname lastname fullName")
+      .populate("lastEditedBy", "firstname lastname fullName")
+      .lean();
 
     // 2️⃣ Aggregate key counts grouped by projectId
     const keyCounts = await ConfigEntry.aggregate([
@@ -202,6 +204,7 @@ export const updateProject = async (req: Request, res: Response) => {
     const updateData: any = {
       title,
       description,
+      lastEditedBy: (req as any).user.id,
     };
 
     if (req.file) {
@@ -275,18 +278,16 @@ export const assignProject = async (req: Request, res: Response) => {
 
     const users = await User.find(
       { _id: { $in: validUserIds } },
-      { firstname: 1, lastname: 1, username: 1 }
+      { firstname: 1, lastname: 1, fullName: 1 }
     ).lean();
 
     const assignedTo = users.map((u) => u._id);
-    const assignedToNames = users.map((u) => u.username || `${u.firstname} ${u.lastname}`);
 
     // Update project with basic assignment info
     const updated = await Project.findByIdAndUpdate(
       projectId,
       {
         assignedTo,
-        assignedToNames,
       },
       { returnDocument: 'after' }
     );
@@ -333,7 +334,6 @@ export const assignProject = async (req: Request, res: Response) => {
           userId,
           environments: defaultEnvironments,
           grantedBy: currentUser.id,
-          grantedByName: currentUser.username || currentUser.email
         });
       }
     }

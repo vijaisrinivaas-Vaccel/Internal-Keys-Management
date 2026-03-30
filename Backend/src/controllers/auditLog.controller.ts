@@ -55,7 +55,7 @@ export const getAuditLogs = async (req: Request, res: Response) => {
     if (search) {
       const searchRegex = new RegExp(search as string, "i");
       // Search by userName field directly
-      query.userName = searchRegex;
+      query.fullName = searchRegex;
     }
 
     // Role-based visibility
@@ -72,7 +72,7 @@ export const getAuditLogs = async (req: Request, res: Response) => {
       .sort({ createdAt: -1 })
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum)
-      .populate("userId", "username firstname lastname email employeeId")
+      .populate("userId", "fullName firstname lastname email employeeId")
       .lean();
 
     return res.json({
@@ -155,7 +155,7 @@ export const exportAuditLogs = async (req: Request, res: Response) => {
     }
 
     if (search) {
-      query.userName = new RegExp(search as string, "i");
+      query.fullName = new RegExp(search as string, "i");
     }
 
     if (currentUser.roleName !== "superadmin" && currentUser.roleName !== "admin") {
@@ -174,7 +174,7 @@ export const exportAuditLogs = async (req: Request, res: Response) => {
       return [
         date.toLocaleDateString(),
         date.toLocaleTimeString(),
-        `"${log.userName}"`,
+        `"${log.fullName}"`,
         log.action,
         log.category,
         `"${log.details.replace(/"/g, '""')}"`,

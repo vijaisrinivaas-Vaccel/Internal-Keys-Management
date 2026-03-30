@@ -19,7 +19,7 @@ import { IOSSwitch } from "../../../Components/ui/ToggleSwitch";
 
 interface User {
   _id: string;
-  username: string;
+  fullName: string;
   firstname: string;
   lastname: string;
   email: string;

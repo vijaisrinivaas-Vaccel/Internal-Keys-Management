@@ -50,7 +50,7 @@ export const createRole = async (req: Request, res: Response) => {
       category: "admin",
       action: "CREATE_ROLE",
       userId: String(user?.id || "system"),
-      userName: user?.username || "System",
+      fullName: user?.fullName || "System",
       targetId: String(role._id),
       details: `Created role "${name}"`,
       metadata: {
@@ -121,7 +121,7 @@ export const updateRole = async (req: Request, res: Response) => {
       category: "admin",
       action: "UPDATE_ROLE",
       userId: String(user?.id || "system"),
-      userName: user?.username || "System",
+      fullName: user?.fullName || "System",
       targetId: String(req.params.id),
       details: `Updated role "${updatedRole?.name || name}"`,
       metadata: {
@@ -166,7 +166,7 @@ export const deleteRole = async (req: Request, res: Response) => {
       category: "admin",
       action: "DELETE_ROLE",
       userId: String(user?.id || "system"),
-      userName: user?.username || "System",
+      fullName: user?.fullName || "System",
       targetId: String(req.params.id),
       details: `Deleted role "${role.name}"`,
       metadata: {

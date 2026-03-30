@@ -88,7 +88,6 @@ export const createConfigTemplate = async (req: Request, res: Response) => {
       description,
       configs,
       createdBy: user.id,
-      createdByName: user.username || "Unknown",
       version: 1
     });
 
@@ -96,7 +95,7 @@ export const createConfigTemplate = async (req: Request, res: Response) => {
       category: "admin",
       action: "CREATE_CONFIG_TEMPLATE",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(template._id),
       details: `Created config template "${template.name}"`,
       metadata: {
@@ -143,7 +142,6 @@ export const updateConfigTemplate = async (req: Request, res: Response) => {
     template.configs = configs || template.configs;
     template.version += 1;
     template.updatedBy = user.id;
-    template.updatedByName = user.username;
 
     await template.save();
 
@@ -160,7 +158,7 @@ export const updateConfigTemplate = async (req: Request, res: Response) => {
       category: "admin",
       action: "UPDATE_CONFIG_TEMPLATE",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(template._id),
       details: `Updated config template "${template.name}"`,
       metadata: {
@@ -196,7 +194,7 @@ export const deleteConfigTemplate = async (req: Request, res: Response) => {
       category: "admin",
       action: "DELETE_CONFIG_TEMPLATE",
       userId: String(user?.id || "system"),
-      userName: user?.username || "System",
+      fullName: user?.fullName || "System",
       targetId: String(id),
       details: `Deleted config template "${template.name}"`,
       metadata: {
@@ -242,10 +240,9 @@ export const applyTemplateToModule = async (req: Request, res: Response) => {
         $push: { entries: { $each: configEntries } },
         $setOnInsert: {
           createdBy: user.id,
-          createdByName: user.username
         },
         $set: {
-          lastEditedByName: user.username,
+          lastEditedByName: user.fullName,
           updatedAt: new Date()
         }
       },

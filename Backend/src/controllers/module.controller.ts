@@ -86,14 +86,13 @@ export const createModule = async (req: Request, res: Response) => {
       projectId,
       environmentId,
       createdBy: user.id,
-      createdByName: user.username,
     });
 
     logAudit({
       category: "activity",
       action: "CREATE_MODULE",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(module._id),
       details: `Created module "${module.moduleName}"`,
       metadata: {
@@ -225,7 +224,7 @@ export const updateModule = async (req: Request, res: Response) => {
       category: "activity",
       action: "UPDATE_MODULE",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(updated?._id || id),
       details: `Updated module "${nextName}"`,
       metadata: {
@@ -297,7 +296,7 @@ export const deleteModule = async (req: Request, res: Response) => {
       category: "activity",
       action: "DELETE_MODULE",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(module._id),
       details: `Deleted module "${module.moduleName}"`,
       metadata: {
@@ -367,7 +366,7 @@ export const setParentModule = async (req: Request, res: Response) => {
       category: "activity",
       action: "UPDATE_MODULE",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(updated?._id || id),
       details: `Set module "${updated?.moduleName || module.moduleName}" as parent`,
       metadata: {

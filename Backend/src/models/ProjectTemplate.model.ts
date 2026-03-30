@@ -8,9 +8,7 @@ export interface IProjectTemplate extends Document {
   isGlobal: boolean;
   version: number;
   createdBy: mongoose.Types.ObjectId;
-  createdByName: string;
   updatedBy?: mongoose.Types.ObjectId;
-  updatedByName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,9 +50,7 @@ const ProjectTemplateSchema = new Schema({
   isGlobal: { type: Boolean, default: false },
   version: { type: Number, default: 1 },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  createdByName: { type: String, required: true },
   updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
-  updatedByName: { type: String }
 }, {
   timestamps: true
 });

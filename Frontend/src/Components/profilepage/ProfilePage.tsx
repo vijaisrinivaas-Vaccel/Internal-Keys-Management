@@ -10,7 +10,7 @@ export interface ProfileData {
   _id: string;
   firstname: string;
   lastname: string;
-  username: string;
+  fullName: string;
   employeeId: string;
   email: string;
   role: string;

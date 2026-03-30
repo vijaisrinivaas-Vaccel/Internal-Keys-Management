@@ -2,7 +2,7 @@ export interface User {
   id: string;
   firstname: string;
   lastname: string;
-  username: string;
+  fullName: string;
   employeeId?: string;
   email: string;
   role: string; // Derived role name from roleId.name
@@ -59,10 +59,10 @@ export const PERMISSIONS = {
   VIEW_SYSTEM_SETTINGS: "VIEW_SYSTEM_SETTINGS",
 
   // ===== ENVIRONMENT NAME ACCESS =====
-  ACCESS_DEVELOPMENT: "ACCESS_DEVELOPMENT",
-  ACCESS_STAGING: "ACCESS_STAGING",
-  ACCESS_UAT: "ACCESS_UAT",
-  ACCESS_PRODUCTION: "ACCESS_PRODUCTION",
+  ACCESS_DEVELOPMENT: "DEVELOPMENT",
+  ACCESS_STAGING: "STAGING",
+  ACCESS_UAT: "UAT",
+  ACCESS_PRODUCTION: "PRODUCTION",
 
   // ===== ENVIRONMENT =====
   CREATE_ENVIRONMENT: "CREATE_ENVIRONMENT",

@@ -7,13 +7,8 @@ export interface ProjectDoc extends Document {
   uploadedFile?: string;
 
   createdBy: mongoose.Types.ObjectId;
-  createdByName: string;
-
   lastEditedBy?: mongoose.Types.ObjectId;
-  lastEditedByName?: string;
-
   assignedTo?: mongoose.Types.ObjectId[];
-  assignedToNames?: string[];
 
   templateId?: mongoose.Types.ObjectId;
   templateName?: string;
@@ -52,33 +47,15 @@ const projectSchema = new Schema<ProjectDoc>(
       required: true,
     },
 
-    createdByName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
     lastEditedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
-    },
-
-    lastEditedByName: {
-      type: String,
-      trim: true,
     },
 
     assignedTo: [
       {
         type: Schema.Types.ObjectId,
         ref: "User",
-      },
-    ],
-
-    assignedToNames: [
-      {
-        type: String,
-        trim: true,
       },
     ],
 

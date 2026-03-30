@@ -30,7 +30,7 @@ export const authMiddleware = async (
     // 🔥 Attach everything you need
     (req as any).user = {
       id: user._id,
-      username: user.username,
+      fullName: user.fullName,
       roleId: user.roleId,
       roleName: role?.name || "user",
       permissions: role?.permissions || [],
@@ -115,7 +115,7 @@ export const attachUserIfPresent = async (
     const role = user.roleId as any;
     (req as any).user = {
       id: user._id,
-      username: user.username,
+      fullName: user.fullName,
       roleId: user.roleId,
       roleName: role?.name || "user",
       permissions: role?.permissions || [],

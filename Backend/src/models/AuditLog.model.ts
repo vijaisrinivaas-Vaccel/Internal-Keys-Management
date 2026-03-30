@@ -6,7 +6,7 @@ export interface AuditLogDoc extends Document {
   category: AuditCategory;
   action: string;
   userId: mongoose.Types.ObjectId;
-  userName: string;
+  fullName: string;
   targetId?: string;
   details: string;
   metadata?: Record<string, any>;
@@ -35,7 +35,7 @@ const auditLogSchema = new Schema<AuditLogDoc>(
       required: true,
       index: true,
     },
-    userName: {
+    fullName: {
       type: String,
       required: true,
     },

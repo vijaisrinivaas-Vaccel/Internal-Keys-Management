@@ -117,14 +117,13 @@ export const createConfigEntry = async (req: Request, res: Response) => {
     const updateDoc: any = {
       $push: { entries: { $each: encryptedEntries } },
       $set: { 
-        lastEditedByName: user.username || "system",
+        lastEditedBy: user.id || "system",
         updatedAt: new Date()
       },
     };
 
     updateDoc.$setOnInsert = {
       createdBy: user.id,
-      createdByName: user.username || "system",
       createdAt: new Date()
     };
 
@@ -144,7 +143,7 @@ export const createConfigEntry = async (req: Request, res: Response) => {
       category: "activity",
       action: "CREATE_CONFIG",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(updated?._id),
       details: `Created ${entries.length} config entry(ies)`,
       metadata: {
@@ -357,7 +356,7 @@ export const updateConfigEntry = async (req: Request, res: Response) => {
       id,
       {
         entries,
-        lastEditedByName: user?.username || "system",
+        lastEditedBy: user?.fullName || "system",
       },
       { 
         returnDocument: 'after'
@@ -419,7 +418,7 @@ export const updateConfigEntry = async (req: Request, res: Response) => {
       category: "activity",
       action: "UPDATE_CONFIG",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(updated?._id || id),
       details: `Updated ${entries.length} config entry(ies)`,
       metadata: {
@@ -498,7 +497,7 @@ export const updateConfigEntryItem = async (req: Request, res: Response) => {
     entry.description = description;
     entry.version += 1;
 
-    config.lastEditedByName = user?.username || "system";
+    config.lastEditedBy = user.id;
 
     await config.save();
 
@@ -523,7 +522,7 @@ export const updateConfigEntryItem = async (req: Request, res: Response) => {
       category: "activity",
       action: "UPDATE_CONFIG",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(config._id),
       details: `Updated config key "${key}"`,
       metadata: {
@@ -603,7 +602,7 @@ export const deleteConfigEntryItem = async (req: Request, res: Response) => {
       category: "activity",
       action: "DELETE_CONFIG",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(config._id),
       details: `Deleted config key "${deletedKey}"`,
       metadata: {
@@ -705,7 +704,7 @@ export const importEnvFile = async (req: Request, res: Response) => {
         {
           $push: { entries: { $each: newEntries } },
           $set: { 
-            lastEditedByName: user?.username || "system",
+            lastEditedBy: user?.fullName || "system",
             updatedAt: new Date()
           }
         },
@@ -726,7 +725,7 @@ export const importEnvFile = async (req: Request, res: Response) => {
         category: "activity",
         action: "IMPORT_CONFIG",
         userId: String(user.id),
-        userName: user.username || "Unknown",
+        fullName: user.fullName || "Unknown",
         targetId: String(updated?._id),
         details: `Imported ${newEntries.length} config entry(ies)`,
         metadata: {
@@ -755,8 +754,7 @@ export const importEnvFile = async (req: Request, res: Response) => {
         moduleId,
         entries: encryptedEntries,
         createdBy: user?.id,
-        createdByName: user?.username || "system",
-        lastEditedByName: user?.username || "system"
+        lastEditedBy: user?.fullName || "system"
       });
 
       const importedKeys = encryptedEntries.map((entry) => entry.key);
@@ -764,7 +762,7 @@ export const importEnvFile = async (req: Request, res: Response) => {
         category: "activity",
         action: "IMPORT_CONFIG",
         userId: String(user.id),
-        userName: user.username || "Unknown",
+        fullName: user.fullName || "Unknown",
         targetId: String(newConfig._id),
         details: `Imported ${encryptedEntries.length} config entry(ies)`,
         metadata: {
@@ -825,7 +823,7 @@ export const exportEnvFile = async (req: Request, res: Response) => {
         category: "activity",
         action: "EXPORT_CONFIG",
         userId: String(user.id),
-        userName: user.username || "Unknown",
+        fullName: user.fullName || "Unknown",
         targetId: String(config._id),
         details: `Exported ${config.entries.length} config entry(ies)`,
         metadata: {
@@ -898,7 +896,7 @@ export const exportEnvFile = async (req: Request, res: Response) => {
       category: "activity",
       action: "EXPORT_CONFIG",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(config._id),
       details: `Exported ${accessibleEntries.length} config entry(ies)`,
       metadata: {
@@ -1000,7 +998,6 @@ export const transferConfigEntries = async (req: Request, res: Response) => {
         })) } },
         $setOnInsert: {
           createdBy: user.id,
-          createdByName: user.username,
         }
       },
       { upsert: true, returnDocument: 'after' }
@@ -1013,7 +1010,7 @@ export const transferConfigEntries = async (req: Request, res: Response) => {
       category: "activity",
       action: actionName,
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(targetConfig?._id),
       details: `${transferLabel} ${selectedKeys.length} config entry(ies)`,
       metadata: {
@@ -1125,8 +1122,7 @@ export const syncFromParent = async (req: Request, res: Response) => {
 
     if (updatedCount > 0) {
       if (!currentConfig.createdBy) currentConfig.createdBy = userId;
-      if (!currentConfig.createdByName) currentConfig.createdByName = user.username || "system";
-      currentConfig.lastEditedByName = user.username || "system";
+      currentConfig.lastEditedBy = userId;
       await currentConfig.save();
     }
 
@@ -1139,7 +1135,7 @@ export const syncFromParent = async (req: Request, res: Response) => {
       category: "activity",
       action: "FETCH_PARENT_CONFIG",
       userId: String(userId),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(currentConfig._id),
       details: `Fetched ${updatedCount} configuration(s) from parent module`,
       metadata: {

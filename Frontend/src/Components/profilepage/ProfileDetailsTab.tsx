@@ -26,7 +26,7 @@ export default function ProfileDetailsTab({
         </div>
         <div className="text-center">
           <h3 className="text-lg font-semibold">{profile.firstname} {profile.lastname}</h3>
-          <p className="text-sm text-gray-500">@{profile.username}</p>
+          <p className="text-sm text-gray-500">@{profile.fullName}</p>
         </div>
         <div className="flex gap-2">
           <span className={`text-xs px-3 py-1 rounded-full ${profile.role === "superadmin" ? "bg-purple-100 text-purple-700" :
@@ -100,9 +100,9 @@ export default function ProfileDetailsTab({
         {isSuperAdmin && (
           <EditableField
             label="Username"
-            value={form.username}
+            value={form.fullName}
             editMode={editMode}
-            onChange={(v: string) => onFieldChange("username", v)}
+            onChange={(v: string) => onFieldChange("fullName", v)}
           />
         )}
       </div>

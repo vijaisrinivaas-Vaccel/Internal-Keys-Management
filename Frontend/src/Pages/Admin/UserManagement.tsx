@@ -27,7 +27,7 @@ interface User {
   _id: string;
   firstname: string;
   lastname: string;
-  username: string;
+  fullName: string;
   email: string;
   employeeId: string;
   role: string;
@@ -172,7 +172,7 @@ export default function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string, reason: string) => {
+  const handleDeleteUser = async (userId: string, fullName: string, reason: string) => {
     if (userId === currentUser.id) {
       alert("You cannot delete yourself.");
       return;
@@ -256,11 +256,11 @@ export default function UserManagement() {
     .filter((user) => {
       const searchLower = search.toLowerCase();
       const matchesSearch =
-        user.username.toLowerCase().includes(searchLower) ||
-        user.firstname?.toLowerCase().includes(searchLower) ||
-        user.lastname?.toLowerCase().includes(searchLower) ||
-        user.email.toLowerCase().includes(searchLower) ||
-        user.employeeId.toLowerCase().includes(searchLower);
+        (user.fullName || "").toLowerCase().includes(searchLower) ||
+        (user.firstname || "").toLowerCase().includes(searchLower) ||
+        (user.lastname || "").toLowerCase().includes(searchLower) ||
+        (user.email || "").toLowerCase().includes(searchLower) ||
+        (user.employeeId || "").toLowerCase().includes(searchLower);
 
       if (!matchesSearch) return false;
       if (filterRole && user.jobRole !== filterRole) return false;
@@ -563,7 +563,7 @@ export default function UserManagement() {
                               {user.firstname} {user.lastname}
                             </div>
                             <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                              @{user.username}
+                              @{user.fullName}
                               <span className={`ml-1 px-2 py-0.5 rounded-full text-xs border ${getRoleBadgeColor(user.role)}`}>
                                 {user.role}
                               </span>

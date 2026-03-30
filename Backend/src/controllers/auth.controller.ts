@@ -63,7 +63,7 @@ export const register = async (req: Request, res: Response) => {
       category: "user",
       action: "CREATE_USER",
       userId: String(newUser._id),
-      userName: `${firstname} ${lastname}`,
+      fullName: `${firstname} ${lastname}`,
       targetId: String(newUser._id),
       details: `New user registered: ${firstname} ${lastname} (${email})`,
       metadata: { email, employeeId, roleName: roleDoc.name },
@@ -141,7 +141,7 @@ export const login = async (req: Request, res: Response) => {
       category: "auth",
       action: "LOGIN",
       userId: String(user._id),
-      userName: user.username || `${user.firstname} ${user.lastname}`,
+      fullName: user.fullName || `${user.firstname} ${user.lastname}`,
       details: `User logged in successfully`,
       metadata: { email: user.email, role: roleName, sessionId: sid, loginAt: new Date().toISOString() },
       req,
@@ -151,7 +151,7 @@ export const login = async (req: Request, res: Response) => {
       accessToken,
       user: {
         id: user._id,
-        username: user.username,
+        fullName: user.fullName,
         firstname: user.firstname,
         lastname: user.lastname,
         email: user.email,
@@ -200,7 +200,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
 export const logout = async (req: Request, res: Response) => {
   const user = (req as any).user;
   let auditUserId: string | null = user?.id ? String(user.id) : null;
-  let auditUserName: string = user?.username || "Unknown";
+  let auditUserName: string = user?.fullName || "Unknown";
   let sessionId: string | undefined;
 
   const refreshToken = getCookieValue(req.headers.cookie, "refreshToken");
@@ -219,12 +219,12 @@ export const logout = async (req: Request, res: Response) => {
   // Fallback: resolve user from refresh token cookie when auth header user is absent.
   if (!auditUserId && refreshPayload?.id) {
     try {
-      const dbUser = await User.findById(refreshPayload.id).select("username firstname lastname");
+      const dbUser = await User.findById(refreshPayload.id).select("fullName firstname lastname");
 
       if (dbUser) {
         auditUserId = String(dbUser._id);
         auditUserName =
-          dbUser.username || `${dbUser.firstname || ""} ${dbUser.lastname || ""}`.trim() || "Unknown";
+          dbUser.fullName || `${dbUser.firstname || ""} ${dbUser.lastname || ""}`.trim() || "Unknown";
       }
     } catch {
       // Best-effort audit enrichment only.
@@ -272,7 +272,7 @@ export const logout = async (req: Request, res: Response) => {
       category: "auth",
       action: "LOGOUT",
       userId: auditUserId,
-      userName: auditUserName,
+      fullName: auditUserName,
       details: `User logged out`,
       metadata: {
         sessionId,
@@ -310,7 +310,7 @@ export const getMe = async (req: Request, res: Response) => {
 
     return res.json({
       id: user._id,
-      username: user.username,
+      fullName: user.fullName,
       firstname: user.firstname,
       lastname: user.lastname,
       employeeId: user.employeeId,

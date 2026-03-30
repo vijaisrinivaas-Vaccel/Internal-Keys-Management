@@ -37,8 +37,7 @@ interface ConfigEntryDoc extends mongoose.Document {
   environmentId: mongoose.Types.ObjectId; 
   entries: Entry[];
   createdBy: mongoose.Types.ObjectId;
-  createdByName: string;
-  lastEditedByName?: string;
+  lastEditedBy?: mongoose.Types.ObjectId;
 }
 
 const entrySchema = new mongoose.Schema<Entry>(
@@ -62,8 +61,7 @@ const configEntrySchema = new mongoose.Schema<ConfigEntryDoc>(
     environmentId: {type: mongoose.Schema.Types.ObjectId,ref: "Environment",required: true},
     entries: [entrySchema],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    createdByName: { type: String, required: true },
-    lastEditedByName: { type: String },
+    lastEditedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     
   },
   {

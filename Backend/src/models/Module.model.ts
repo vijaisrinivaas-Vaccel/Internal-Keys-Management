@@ -8,7 +8,6 @@ interface ModuleDoc extends mongoose.Document {
 
   description?: string;
   createdBy: mongoose.Types.ObjectId;
-  createdByName: string;
   isParent: boolean;
 }
 
@@ -39,10 +38,6 @@ const moduleSchema = new mongoose.Schema<ModuleDoc>(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,   
-    },
-    createdByName: {
-      type: String,
-      required: true, 
     },
     isParent: {
       type: Boolean,

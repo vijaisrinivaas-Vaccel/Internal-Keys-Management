@@ -178,7 +178,6 @@ export const assignProjectPermissions = async (req: Request, res: Response) => {
           userId,
           environments,
           grantedBy: currentUser.id,
-          grantedByName: currentUser.username || currentUser.email,
         },
         { upsert: true, returnDocument: 'after' }
       );
@@ -186,7 +185,7 @@ export const assignProjectPermissions = async (req: Request, res: Response) => {
       results.push(updated);
 
       const targetUserName =
-        user.username || `${user.firstname || ""} ${user.lastname || ""}`.trim() || user.email || String(user._id);
+        user.fullName || `${user.firstname || ""} ${user.lastname || ""}`.trim() || user.email || String(user._id);
 
       if (existingPermission) {
         const diff = buildReassignmentSummary(
@@ -198,7 +197,7 @@ export const assignProjectPermissions = async (req: Request, res: Response) => {
           category: "permission",
           action: "UPDATE_PERMISSION",
           userId: String(currentUser.id),
-          userName: currentUser.username || "Unknown",
+          fullName: currentUser.fullName || "Unknown",
           targetId: String(userId),
           details: `Reassigned permissions for user "${targetUserName}" in project "${project.title}"`,
           metadata: {
@@ -222,7 +221,7 @@ export const assignProjectPermissions = async (req: Request, res: Response) => {
           category: "permission",
           action: "ASSIGN_PROJECT",
           userId: String(currentUser.id),
-          userName: currentUser.username || "Unknown",
+          fullName: currentUser.fullName || "Unknown",
           targetId: String(userId),
           details: `Assigned user "${targetUserName}" to project "${project.title}"`,
           metadata: {
@@ -283,13 +282,12 @@ export const updateUserProjectPermissions = async (req: Request, res: Response) 
         userId,
         environments: environments || [], // Store the hierarchical environment permissions
         grantedBy: currentUser.id,
-        grantedByName: currentUser.username || currentUser.email,
       },
       { upsert: true, returnDocument: "after" }
     );
 
     const targetUserName =
-      user.username || `${user.firstname || ""} ${user.lastname || ""}`.trim() || user.email || String(user._id);
+      user.fullName || `${user.firstname || ""} ${user.lastname || ""}`.trim() || user.email || String(user._id);
 
     if (existingPermission) {
       const diff = buildReassignmentSummary(
@@ -301,7 +299,7 @@ export const updateUserProjectPermissions = async (req: Request, res: Response) 
         category: "permission",
         action: "UPDATE_PERMISSION",
         userId: String(currentUser.id),
-        userName: currentUser.username || "Unknown",
+        fullName: currentUser.fullName || "Unknown",
         targetId: String(userId),
         details: `Reassigned permissions for user "${targetUserName}" in project "${project.title}"`,
         metadata: {
@@ -325,7 +323,7 @@ export const updateUserProjectPermissions = async (req: Request, res: Response) 
         category: "permission",
         action: "ASSIGN_PROJECT",
         userId: String(currentUser.id),
-        userName: currentUser.username || "Unknown",
+        fullName: currentUser.fullName || "Unknown",
         targetId: String(userId),
         details: `Assigned user "${targetUserName}" to project "${project.title}"`,
         metadata: {
@@ -443,10 +441,10 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
       const existingPermission = await ProjectUserPermission.findOne({ projectId, userId }).lean();
 
       // Get user details for project assignment
-      const user = await User.findById(userId).select("firstname lastname username");
+      const user = await User.findById(userId).select("firstname lastname fullName");
       if (user) {
         assignedUserIds.push(userId);
-        assignedUserNames.push(user.username || `${user.firstname} ${user.lastname}`);
+        assignedUserNames.push(user.fullName || `${user.firstname} ${user.lastname}`);
       }
 
       // Update or create permissions for each user
@@ -457,7 +455,6 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
           userId,
           environments,
           grantedBy: currentUser.id,
-          grantedByName: currentUser.username || currentUser.email,
         },
         { upsert: true, returnDocument: 'after' }
       );
@@ -468,7 +465,7 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
       });
 
       const targetUserName =
-        user?.username ||
+        user?.fullName ||
         `${user?.firstname || ""} ${user?.lastname || ""}`.trim() ||
         String(userId);
 
@@ -482,7 +479,7 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
           category: "permission",
           action: "UPDATE_PERMISSION",
           userId: String(currentUser.id),
-          userName: currentUser.username || "Unknown",
+          fullName: currentUser.fullName || "Unknown",
           targetId: String(userId),
           details: `Reassigned permissions for user "${targetUserName}" in project "${project.title}"`,
           metadata: {
@@ -506,7 +503,7 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
           category: "permission",
           action: "ASSIGN_PROJECT",
           userId: String(currentUser.id),
-          userName: currentUser.username || "Unknown",
+          fullName: currentUser.fullName || "Unknown",
           targetId: String(userId),
           details: `Assigned user "${targetUserName}" to project "${project.title}"`,
           metadata: {
@@ -529,7 +526,6 @@ export const bulkAssignPermissions = async (req: Request, res: Response) => {
         projectId,
         {
           assignedTo: assignedUserIds,
-          assignedToNames: assignedUserNames,
         },
         { returnDocument: 'after' }
       );
@@ -583,7 +579,7 @@ export const getProjectAssignedUsers = async (req: Request, res: Response) => {
     const assignedUsers = await Promise.all(
       project.assignedTo.map(async (userId) => {
         const user = await User.findById(userId)
-          .select("firstname lastname username email roleId")
+          .select("firstname lastname fullName email roleId")
           .populate("roleId")
           .lean();
 
@@ -593,7 +589,7 @@ export const getProjectAssignedUsers = async (req: Request, res: Response) => {
           _id: userId,
           firstname: user?.firstname,
           lastname: user?.lastname,
-          username: user?.username,
+          fullName: user?.fullName,
           email: user?.email,
           role: roleName,
           environments: permissionsMap.get(userId.toString()) || []
@@ -625,7 +621,7 @@ export const removeUserProjectPermissions = async (req: Request, res: Response) 
 
     const [project, targetUser] = await Promise.all([
       Project.findById(projectId).select("title"),
-      User.findById(userId).select("firstname lastname username email"),
+      User.findById(userId).select("firstname lastname fullName email roleId"),
     ]);
 
     const deleted = await ProjectUserPermission.findOneAndDelete({
@@ -639,7 +635,7 @@ export const removeUserProjectPermissions = async (req: Request, res: Response) 
 
     const removalSummary = buildRemovalSummary((deleted.environments || []) as PermissionTree);
     const targetUserName =
-      targetUser?.username ||
+      targetUser?.fullName ||
       `${targetUser?.firstname || ""} ${targetUser?.lastname || ""}`.trim() ||
       targetUser?.email ||
       String(userId);
@@ -649,7 +645,7 @@ export const removeUserProjectPermissions = async (req: Request, res: Response) 
       category: "permission",
       action: "REMOVE_PERMISSION",
       userId: String(currentUser.id),
-      userName: currentUser.username || "Unknown",
+      fullName: currentUser.fullName || "Unknown",
       targetId: String(userId),
       details: `Removed permissions for user "${targetUserName}" from project "${project?.title || projectId}"`,
       metadata: {

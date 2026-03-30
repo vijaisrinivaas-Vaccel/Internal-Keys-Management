@@ -23,7 +23,6 @@ async function seedDefaultTemplate() {
 
       isGlobal: true,
       createdBy: new mongoose.Types.ObjectId(), // system user
-      createdByName: "System",
 
       environments: [
         {

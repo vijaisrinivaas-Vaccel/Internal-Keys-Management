@@ -7,13 +7,13 @@ export interface AuditLogEntry {
   action: string;
   userId: {
     _id: string;
-    username: string;
+    fullName: string;
     firstname: string;
     lastname: string;
     email: string;
     employeeId?: string;
   } | null;
-  userName: string;
+  fullName: string;
   targetId?: string;
   details: string;
   metadata?: Record<string, any>;

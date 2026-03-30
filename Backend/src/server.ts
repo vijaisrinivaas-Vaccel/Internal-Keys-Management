@@ -15,6 +15,8 @@ import configTemplateRoutes from "./routes/configTemplate.routes";
 import roleRoutes from "./routes/role.routes";
 import auditLogRoutes from "./routes/auditLog.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
+import globalSettingRoutes from "./routes/globalSetting.routes";
+import { maintenanceMiddleware } from "./middlewares/maintenance.middleware";
 import { seedRoles } from "./scripts/seedRoles";
 
 dotenv.config();
@@ -45,6 +47,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(maintenanceMiddleware);
 
 connectDB().then(() => {
   seedRoles();
@@ -63,6 +66,7 @@ app.use("/api/config-templates", configTemplateRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/settings", globalSettingRoutes);
 
 // Root Route
 app.get("/", (req, res) => {

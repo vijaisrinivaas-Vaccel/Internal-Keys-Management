@@ -24,11 +24,6 @@ const environmentSchema = new mongoose.Schema<EnvironmentDoc>(
       ref: "User",
       required: true,
     },
-
-    createdByName: {
-      type: String,
-      required: true,
-    },
   },
   { timestamps: true }
 );

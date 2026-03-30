@@ -5,7 +5,7 @@ import { JobRole, JobLevel, Permission , PERMISSIONS } from "../config/accessCon
 export interface UserDoc extends Document {
   firstname: string;
   lastname: string;
-  username: string;
+  fullName: string;
   employeeId?: string;
   email: string;
   password: string;
@@ -36,7 +36,7 @@ const userSchema = new Schema<UserDoc>(
       minlength: 1,
     },
 
-    username: {
+    fullName: {
       type: String,
       unique: true,
     },
@@ -135,7 +135,7 @@ userSchema.pre("save", async function () {
 
   this.firstname = first;
   this.lastname = last;
-  this.username = `${first} ${last}`;
+  this.fullName = `${first} ${last}`;
 });
 
 export default mongoose.model<UserDoc>("User", userSchema, "Users");

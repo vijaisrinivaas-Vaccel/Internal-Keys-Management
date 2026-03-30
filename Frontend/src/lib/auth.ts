@@ -55,22 +55,28 @@ export const authFetch = async (
 
   // If unauthorized and we have a token, try to refresh once
   if (response.status === 401 && token) {
-    
     const newToken = await refreshAccessToken();
-    
     if (newToken) {
-
       const retryHeaders = new Headers(init.headers || {});
       retryHeaders.set("Authorization", `Bearer ${newToken}`);
-      
       response = await fetch(url, {
         ...init,
         headers: retryHeaders,
         credentials: "include",
       });
-    } else {
-      console.error("Token refresh failed");
-      
+    }
+  }
+
+  // Handle Maintenance Mode in real-time
+  if (response.status === 503) {
+    const clone = response.clone();
+    try {
+      const data = await clone.json();
+      if (data.message === "UNDER_MAINTENANCE") {
+        window.dispatchEvent(new CustomEvent("app-maintenance-active"));
+      }
+    } catch {
+      // Ignored if not JSON
     }
   }
 

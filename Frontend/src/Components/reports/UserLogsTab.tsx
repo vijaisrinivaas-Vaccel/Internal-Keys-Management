@@ -68,7 +68,7 @@ export default function UserLogsTab() {
       render: (log: AuditLogEntry) => (
         <div>
           <div className="font-medium text-gray-900 dark:text-white text-sm">
-            {log.userId?.username || log.userName}
+            {log.userId?.fullName || log.fullName}
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400">
             {log.userId?.email || "-"}

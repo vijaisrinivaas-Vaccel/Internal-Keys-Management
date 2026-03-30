@@ -73,14 +73,13 @@ export const createEnvironment = async (req: Request, res: Response) => {
       name,
       projectId,
       createdBy: user.id,
-      createdByName: user.username,
     });
 
     logAudit({
       category: "activity",
       action: "CREATE_ENVIRONMENT",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(env._id),
       details: `Created environment "${env.name}"`,
       metadata: {
@@ -110,7 +109,7 @@ export const getEnvironments = async (req: Request, res: Response) => {
     }
 
     // Get all environments from database
-    const allEnvs = await Environment.find({ projectId });
+    const allEnvs = await Environment.find({ projectId }).populate("createdBy", "firstname lastname fullName");
 
     // Superadmin sees all
     if (user.roleName === "superadmin") {
@@ -196,7 +195,7 @@ export const updateEnvironment = async (req: Request, res: Response) => {
       category: "activity",
       action: "UPDATE_ENVIRONMENT",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(updated?._id || environmentId),
       details: `Updated environment "${nextName}"`,
       metadata: {
@@ -278,7 +277,7 @@ export const deleteEnvironment = async (req: Request, res: Response) => {
       category: "activity",
       action: "DELETE_ENVIRONMENT",
       userId: String(user.id),
-      userName: user.username || "Unknown",
+      fullName: user.fullName || "Unknown",
       targetId: String(environment._id),
       details: `Deleted environment "${environment.name}"`,
       metadata: {
